@@ -21,12 +21,26 @@ class CreateFamilyUserCommand extends Command
 
         $plainToken = Str::random(80);
 
+        $avatarColors = [
+            '#ef4444',
+            '#f97316',
+            '#f59e0b',
+            '#84cc16',
+            '#22c55e',
+            '#14b8a6',
+            '#06b6d4',
+            '#3b82f6',
+            '#6366f1',
+            '#8b5cf6',
+            '#ec4899',
+        ];
+
         $user = User::query()->create([
             'name' => $name,
             'email' => $email,
             'password' => Hash::make(Str::random(40)),
             'magic_token_hash' => hash('sha256', $plainToken),
-            'avatar_color' => fake()->hexColor(),
+            'avatar_color' => $avatarColors[array_rand($avatarColors)],
         ]);
 
         $this->info('Пользователь создан: ' . $user->name);
