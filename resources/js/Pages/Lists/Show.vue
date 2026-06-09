@@ -1,7 +1,10 @@
 <script setup>
-import { Head, Link, router, useForm } from '@inertiajs/vue3'
-import { computed, nextTick, ref, watch } from 'vue'
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import draggable from 'vuedraggable'
+import NetworkStatus from '@/Components/NetworkStatus.vue'
+import { useNetworkStatus } from '@/Composables/useNetworkStatus'
+import { useOfflineTaskQueue } from '@/Composables/useOfflineTaskQueue'
 
 const props = defineProps({
     list: {
@@ -10,8 +13,51 @@ const props = defineProps({
     },
 })
 
+const page = usePage()
+const user = computed(() => page.props.auth?.user ?? null)
+
+const {
+    isOnline,
+    recentlyRestored,
+} = useNetworkStatus()
+
+const {
+    offlineTasks,
+    isSyncingOfflineTasks,
+    syncError,
+    addOfflineTask,
+    removeOfflineTask,
+    syncOfflineTasks,
+} = useOfflineTaskQueue(props.list.id)
+
 const localActiveTasks = ref([])
 const localDoneTasks = ref([])
+const showDoneTasks = ref(false)
+
+function handleOnline() {
+    syncOfflineTasks()
+}
+
+onMounted(() => {
+    if (navigator.onLine) {
+        syncOfflineTasks()
+    }
+
+    window.addEventListener('online', handleOnline)
+})
+
+onUnmounted(() => {
+    window.removeEventListener('online', handleOnline)
+})
+
+watch(
+    () => isOnline.value,
+    value => {
+        if (value) {
+            syncOfflineTasks()
+        }
+    },
+)
 
 function syncLocalTasks(tasks) {
     localActiveTasks.value = tasks.filter(task => !task.is_done)
@@ -55,6 +101,10 @@ const listForm = useForm({
 })
 
 function updateList() {
+    if (!isOnline.value) {
+        return
+    }
+
     listForm.patch(route('lists.update', props.list.id), {
         preserveScroll: true,
         onSuccess: () => {
@@ -64,6 +114,10 @@ function updateList() {
 }
 
 function archiveList() {
+    if (!isOnline.value) {
+        return
+    }
+
     if (!confirm('Архивировать этот список? Он пропадёт с главной страницы.')) {
         return
     }
@@ -72,6 +126,10 @@ function archiveList() {
 }
 
 function repeatDoneTasks() {
+    if (!isOnline.value) {
+        return
+    }
+
     router.post(route('lists.repeat-done-tasks', props.list.id), {}, {
         preserveScroll: true,
     })
@@ -84,6 +142,10 @@ const openedTaskMenuId = ref(null)
 const longPressTimer = ref(null)
 
 function startEditTask(task) {
+    if (task._offline) {
+        return
+    }
+
     openedTaskMenuId.value = null
     editingTaskId.value = task.id
     editingTitle.value = task.title
@@ -111,6 +173,11 @@ function saveEditTask(task) {
         return
     }
 
+    if (!isOnline.value) {
+        cancelEditTask()
+        return
+    }
+
     router.patch(route('tasks.update', task.id), {
         title,
     }, {
@@ -129,7 +196,23 @@ const doneTasks = computed(() => {
     return localDoneTasks.value.filter(task => !pendingDeleteIds.value.includes(task.id))
 })
 
-const tasksTotal = computed(() => activeTasks.value.length + doneTasks.value.length)
+const visibleDoneTasks = computed(() => {
+    if (!showDoneTasks.value) {
+        return []
+    }
+
+    return doneTasks.value
+})
+
+const hiddenDoneTasksCount = computed(() => {
+    if (showDoneTasks.value) {
+        return 0
+    }
+
+    return doneTasks.value.length
+})
+
+const tasksTotal = computed(() => activeTasks.value.length + doneTasks.value.length + offlineTasks.value.length)
 
 const progressPercent = computed(() => {
     if (tasksTotal.value === 0) {
@@ -156,6 +239,24 @@ const listMood = computed(() => {
 })
 
 function createTask() {
+    const title = form.title.trim()
+
+    if (!title || form.processing) {
+        return
+    }
+
+    if (!isOnline.value) {
+        addOfflineTask(title, user.value)
+
+        form.reset()
+
+        nextTick(() => {
+            addTaskInput.value?.focus()
+        })
+
+        return
+    }
+
     form.post(route('tasks.store', props.list.id), {
         preserveScroll: true,
         onSuccess: () => {
@@ -169,6 +270,14 @@ function createTask() {
 }
 
 function toggleTask(task) {
+    if (task._offline) {
+        return
+    }
+
+    if (!isOnline.value) {
+        return
+    }
+
     openedTaskMenuId.value = null
 
     router.post(route('tasks.toggle', task.id), {}, {
@@ -178,6 +287,15 @@ function toggleTask(task) {
 
 function deleteTask(task) {
     openedTaskMenuId.value = null
+
+    if (task._offline) {
+        removeOfflineTask(task.id)
+        return
+    }
+
+    if (!isOnline.value) {
+        return
+    }
 
     if (pendingDeleteIds.value.includes(task.id)) {
         return
@@ -274,8 +392,15 @@ function clearLongPress() {
 }
 
 function saveTasksOrder() {
+    if (!isOnline.value) {
+        syncLocalTasks(props.list.tasks)
+        return
+    }
+
     router.patch(route('tasks.reorder', props.list.id), {
-        ids: localActiveTasks.value.map(task => task.id),
+        ids: localActiveTasks.value
+            .filter(task => !pendingDeleteIds.value.includes(task.id))
+            .map(task => task.id),
     }, {
         preserveScroll: true,
         preserveState: true,
@@ -285,6 +410,8 @@ function saveTasksOrder() {
 
 <template>
     <Head :title="list.title" />
+
+    <NetworkStatus />
 
     <main class="home-page home-mobile-page" @click.self="closeTaskMenu">
         <div class="home-container pb-44 sm:pb-32">
@@ -303,7 +430,7 @@ function saveTasksOrder() {
                         </div>
 
                         <div class="min-w-0 flex-1">
-                            <h1 class="home-title truncate text-[28px] font-bold leading-tight sm:text-3xl">
+                            <h1 class="home-title truncate text-[26px] font-bold leading-tight tracking-tight sm:text-3xl">
                                 {{ list.title }}
                             </h1>
 
@@ -322,7 +449,7 @@ function saveTasksOrder() {
                         </button>
                     </div>
 
-                    <div class="mt-4 rounded-[1.5rem] bg-white/50 p-3 ring-1 ring-[var(--home-border)]">
+                    <div class="mt-3 rounded-[1.35rem] bg-white/45 p-3 ring-1 ring-[var(--home-border)]">
                         <div class="flex items-center justify-between gap-3">
                             <div class="home-muted text-xs font-bold uppercase tracking-wide">
                                 Прогресс
@@ -390,7 +517,7 @@ function saveTasksOrder() {
                         <button
                             type="submit"
                             class="home-primary-button flex-1 rounded-2xl px-4 py-3 font-semibold"
-                            :disabled="listForm.processing"
+                            :disabled="listForm.processing || !isOnline"
                         >
                             {{ listForm.processing ? 'Сохраняю…' : 'Сохранить' }}
                         </button>
@@ -424,18 +551,18 @@ function saveTasksOrder() {
                         ref="addTaskInput"
                         v-model="form.title"
                         class="home-input min-h-[72px] flex-1 resize-none rounded-[1.5rem] border-transparent px-4 py-4 text-[17px] leading-snug sm:min-h-[52px] sm:py-3 sm:text-base"
-                        placeholder="Добавить задачу или вставить список строк..."
+                        placeholder="Новая задача или список строк..."
                         autocomplete="off"
                         rows="2"
                     />
 
                     <button
                         type="submit"
-                        class="home-composer-add flex min-h-[72px] w-[58px] shrink-0 items-center justify-center rounded-[1.5rem] text-2xl font-medium leading-none transition active:scale-[0.96] disabled:opacity-50 sm:min-h-[52px] sm:w-[52px]"
+                        class="home-composer-add grid min-h-[72px] w-[58px] shrink-0 place-items-center rounded-[1.5rem] text-[28px] font-normal leading-none transition active:scale-[0.96] disabled:opacity-50 sm:min-h-[52px] sm:w-[52px] sm:text-2xl"
                         :disabled="form.processing || !form.title.trim()"
                         aria-label="Добавить задачу"
                     >
-                        {{ form.processing ? '…' : '+' }}
+                        <span aria-hidden="true" class="-mt-0.5 leading-none">{{ form.processing ? '…' : '＋' }}</span>
                     </button>
                 </div>
 
@@ -444,6 +571,24 @@ function saveTasksOrder() {
                     class="px-2 pt-2 text-sm text-red-500"
                 >
                     {{ form.errors.title }}
+                </div>
+
+                <div
+                    v-if="offlineTasks.length > 0"
+                    class="px-2 pt-2 text-xs font-semibold"
+                    :class="syncError ? 'text-red-500' : 'home-muted'"
+                >
+                    <template v-if="isSyncingOfflineTasks">
+                        Отправляю сохранённые задачи…
+                    </template>
+
+                    <template v-else-if="syncError">
+                        Не удалось отправить сохранённые задачи. Попробуем позже.
+                    </template>
+
+                    <template v-else>
+                        {{ offlineTasks.length }} {{ offlineTasks.length === 1 ? 'задача ждёт' : 'задачи ждут' }} отправки.
+                    </template>
                 </div>
             </form>
 
@@ -454,6 +599,7 @@ function saveTasksOrder() {
                 <button
                     type="button"
                     class="home-secondary-button w-full rounded-[1.75rem] px-5 py-4 text-base font-semibold active:scale-[0.99]"
+                    :disabled="!isOnline"
                     @click="repeatDoneTasks"
                 >
                     ↺ Повторить выполненные
@@ -482,6 +628,62 @@ function saveTasksOrder() {
                     </button>
                 </div>
 
+                <TransitionGroup
+                    v-if="offlineTasks.length > 0"
+                    name="task-list"
+                    tag="div"
+                    class="mb-3 space-y-3"
+                >
+                    <div
+                        v-for="task in offlineTasks"
+                        :key="task.id"
+                        class="home-card home-task-card relative rounded-[1.8rem] p-3 transition active:scale-[0.99] sm:p-4"
+                    >
+                        <div class="flex min-h-[60px] items-center gap-3">
+                            <button
+                                type="button"
+                                class="home-check-button home-check-button-mobile flex h-12 w-12 shrink-0 items-center justify-center rounded-full opacity-50"
+                                aria-label="Задача ожидает отправки"
+                                disabled
+                            />
+
+                            <div
+                                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                                :style="{ backgroundColor: task.creator?.avatar_color || 'var(--home-avatar-fallback)' }"
+                                :title="task.creator?.name"
+                            >
+                                {{ userInitials(task.creator?.name) }}
+                            </div>
+
+                            <div class="min-w-0 flex-1 py-2">
+                                <div class="home-title text-[17px] font-semibold leading-snug line-clamp-3 sm:text-lg sm:line-clamp-2">
+                                    {{ task.title }}
+                                </div>
+
+                                <div class="home-muted mt-1 flex items-center gap-2 text-xs font-semibold">
+                    <span
+                        class="inline-flex h-2 w-2 rounded-full"
+                        :class="task._syncing ? 'bg-amber-500' : 'bg-[var(--home-focus)]'"
+                    />
+
+                                    <span>
+                        {{ task._syncing ? 'Отправляется…' : 'Сохранено на устройстве' }}
+                    </span>
+                                </div>
+                            </div>
+
+                            <button
+                                type="button"
+                                class="home-menu-button flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-xl"
+                                aria-label="Удалить локальную задачу"
+                                @click="removeOfflineTask(task.id)"
+                            >
+                                ×
+                            </button>
+                        </div>
+                    </div>
+                </TransitionGroup>
+
                 <draggable
                     v-model="localActiveTasks"
                     item-key="id"
@@ -501,7 +703,7 @@ function saveTasksOrder() {
                             <div class="flex min-h-[60px] items-center gap-3">
                                 <button
                                     type="button"
-                                    class="task-drag-handle hidden h-10 w-7 shrink-0 items-center justify-center rounded-full text-xl text-[var(--home-text-subtle)] active:cursor-grabbing sm:flex"
+                                    class="task-drag-handle flex h-12 w-8 shrink-0 cursor-grab items-center justify-center rounded-full text-xl text-[var(--home-text-subtle)] active:cursor-grabbing sm:h-10 sm:w-7"
                                     aria-label="Перетащить задачу"
                                 >
                                     ⋮⋮
@@ -559,6 +761,20 @@ function saveTasksOrder() {
                             </div>
 
                             <div
+                                v-if="task._offline"
+                                class="mt-2 flex items-center gap-2 pl-[108px] text-xs font-semibold sm:pl-[122px]"
+                            >
+                                <span
+                                    class="inline-flex h-2 w-2 rounded-full"
+                                    :class="task._syncing ? 'bg-amber-500' : 'bg-[var(--home-focus)]'"
+                                />
+
+                                                            <span class="home-muted">
+                                    {{ task._syncing ? 'Отправляется…' : 'Сохранено на устройстве' }}
+                                </span>
+                            </div>
+
+                            <div
                                 v-if="openedTaskMenuId === task.id"
                                 class="home-task-menu absolute right-3 top-16 z-20 hidden w-44 overflow-hidden rounded-2xl p-1 sm:block"
                                 @click.stop
@@ -588,9 +804,19 @@ function saveTasksOrder() {
                 v-if="doneTasks.length > 0"
                 class="mt-8 pb-6"
             >
-                <div class="home-subtle mb-3 px-2 text-xs font-bold uppercase tracking-wide">
-                    Выполнено
-                </div>
+                <button
+                    type="button"
+                    class="home-done-section-toggle mb-3 flex min-h-12 w-full items-center justify-between rounded-[1.5rem] px-4 py-3 text-left text-sm font-bold"
+                    @click="showDoneTasks = !showDoneTasks"
+                >
+        <span>
+            Выполнено · {{ doneTasks.length }}
+        </span>
+
+                    <span class="text-base leading-none">
+            {{ showDoneTasks ? '⌃' : '⌄' }}
+        </span>
+                </button>
 
                 <TransitionGroup
                     name="task-list"
@@ -598,7 +824,7 @@ function saveTasksOrder() {
                     class="space-y-3"
                 >
                     <div
-                        v-for="task in doneTasks"
+                        v-for="task in visibleDoneTasks"
                         :key="task.id"
                         class="home-soft-card home-task-card relative rounded-[1.8rem] p-3 opacity-80 transition active:scale-[0.99] sm:p-4"
                     >
@@ -679,6 +905,14 @@ function saveTasksOrder() {
                         </div>
                     </div>
                 </TransitionGroup>
+                <button
+                    v-if="hiddenDoneTasksCount > 0"
+                    type="button"
+                    class="home-soft-button mt-3 min-h-12 w-full rounded-[1.5rem] px-4 py-3 text-sm font-semibold"
+                    @click="showDoneTasks = true"
+                >
+                    Показать ещё {{ hiddenDoneTasksCount }}
+                </button>
             </section>
         </div>
 
@@ -688,6 +922,7 @@ function saveTasksOrder() {
                     v-if="doneTasks.length > 0"
                     type="button"
                     class="home-bottom-side-button flex min-h-[50px] flex-col items-center justify-center rounded-2xl px-2 text-xs font-semibold"
+                    :disabled="!isOnline"
                     @click="repeatDoneTasks"
                 >
                     <span class="text-base leading-none">↺</span>
@@ -702,7 +937,7 @@ function saveTasksOrder() {
                     @click="handleBottomAddClick"
                     aria-label="Добавить задачу"
                 >
-                    +
+                    <span aria-hidden="true" class="-mt-0.5 leading-none">＋</span>
                 </button>
 
                 <button
@@ -711,7 +946,7 @@ function saveTasksOrder() {
                     @click="openListSettings"
                 >
                     <span class="text-base leading-none">⋯</span>
-                    <span class="mt-1">Настройки</span>
+                    <span class="mt-1">Ещё</span>
                 </button>
             </div>
         </nav>
@@ -742,6 +977,14 @@ function saveTasksOrder() {
                             {{ openedTask.title }}
                         </div>
                     </div>
+
+                    <button
+                        type="button"
+                        class="home-action-sheet-item w-full rounded-[1.35rem] px-4 py-4 text-left text-base font-semibold"
+                        @click="toggleTask(openedTask)"
+                    >
+                        {{ openedTask?.is_done ? 'Вернуть в активные' : 'Отметить выполненной' }}
+                    </button>
 
                     <button
                         type="button"
@@ -819,5 +1062,8 @@ function saveTasksOrder() {
 .task-list-leave-to {
     opacity: 0;
     transform: translateY(8px) scale(0.98);
+}
+.task-drag-handle {
+    touch-action: none;
 }
 </style>

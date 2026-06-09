@@ -1,6 +1,16 @@
-const CACHE_NAME = 'doma-v1'
+const CACHE_NAME = 'doma-v2'
+
+const STATIC_ASSETS = [
+    '/',
+]
 
 self.addEventListener('install', event => {
+    event.waitUntil(
+        caches.open(CACHE_NAME).then(cache => {
+            return cache.addAll(STATIC_ASSETS).catch(() => null)
+        })
+    )
+
     self.skipWaiting()
 })
 
@@ -19,11 +29,39 @@ self.addEventListener('activate', event => {
 })
 
 self.addEventListener('fetch', event => {
-    if (event.request.method !== 'GET') {
+    const request = event.request
+
+    if (request.method !== 'GET') {
+        return
+    }
+
+    if (!request.url.startsWith(self.location.origin)) {
         return
     }
 
     event.respondWith(
-        fetch(event.request).catch(() => caches.match(event.request))
+        fetch(request)
+            .then(response => {
+                const responseClone = response.clone()
+
+                caches.open(CACHE_NAME).then(cache => {
+                    cache.put(request, responseClone)
+                })
+
+                return response
+            })
+            .catch(async () => {
+                const cachedResponse = await caches.match(request)
+
+                if (cachedResponse) {
+                    return cachedResponse
+                }
+
+                if (request.mode === 'navigate') {
+                    return caches.match('/')
+                }
+
+                return Response.error()
+            })
     )
 })

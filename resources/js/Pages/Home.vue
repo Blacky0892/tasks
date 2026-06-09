@@ -2,6 +2,8 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3'
 import { computed, ref, watch } from 'vue'
 import draggable from 'vuedraggable'
+import NetworkStatus from '@/Components/NetworkStatus.vue'
+import { useNetworkStatus } from '@/Composables/useNetworkStatus'
 
 const props = defineProps({
     lists: {
@@ -12,6 +14,8 @@ const props = defineProps({
 
 const page = usePage()
 const user = computed(() => page.props.auth?.user ?? null)
+
+const { isOnline } = useNetworkStatus()
 
 const localLists = ref([...props.lists])
 
@@ -87,7 +91,39 @@ function progressLabel(list) {
     return `${listProgressPercent(list)}%`
 }
 
+function listStatusClass(list) {
+    const total = listTasksTotal(list)
+
+    if (total === 0) {
+        return 'home-list-card-status-empty'
+    }
+
+    if (Number(list.active_tasks_count || 0) === 0) {
+        return 'home-list-card-status-done'
+    }
+
+    return 'home-list-card-status-active'
+}
+
+function listStatusText(list) {
+    const total = listTasksTotal(list)
+
+    if (total === 0) {
+        return 'Пусто'
+    }
+
+    if (Number(list.active_tasks_count || 0) === 0) {
+        return 'Готово'
+    }
+
+    return Number(list.active_tasks_count || 0)
+}
+
 function createList() {
+    if (!isOnline.value) {
+        return
+    }
+
     form.post(route('lists.store'), {
         preserveScroll: true,
         onSuccess: () => {
@@ -99,7 +135,7 @@ function createList() {
 }
 
 function createTemplateList(title, emoji) {
-    if (form.processing) {
+    if (form.processing || !isOnline.value) {
         return
     }
 
@@ -109,6 +145,11 @@ function createTemplateList(title, emoji) {
 }
 
 function saveListsOrder() {
+    if (!isOnline.value) {
+        localLists.value = [...props.lists]
+        return
+    }
+
     router.patch(route('lists.reorder'), {
         ids: localLists.value.map(list => list.id),
     }, {
@@ -121,10 +162,12 @@ function saveListsOrder() {
 <template>
     <Head title="Наш дом" />
 
+    <NetworkStatus />
+
     <main class="home-page home-mobile-page">
         <div class="home-container pb-28 sm:pb-24">
             <header class="mb-5 sm:mb-6">
-                <div class="home-hero-card home-hero-mobile relative overflow-hidden rounded-[2.1rem] p-5 sm:p-6">
+                <div class="home-hero-card-compact home-hero-mobile relative overflow-hidden rounded-[2rem] p-4 sm:p-5">
                     <div class="home-hero-orb" />
 
                     <div class="relative flex items-start justify-between gap-4">
@@ -133,7 +176,7 @@ function saveListsOrder() {
                                 {{ user?.name ?? 'Привет' }}, добро пожаловать
                             </div>
 
-                            <h1 class="home-title mt-2 text-[34px] font-bold leading-none tracking-tight sm:text-4xl">
+                            <h1 class="home-title mt-1.5 text-[30px] font-bold leading-none tracking-tight sm:text-4xl">
                                 Наш дом
                             </h1>
 
@@ -142,7 +185,7 @@ function saveListsOrder() {
                             </div>
                         </div>
 
-                        <div class="home-hero-icon flex h-16 w-16 shrink-0 items-center justify-center rounded-[1.7rem] text-4xl">
+                        <div class="home-hero-icon flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.45rem] text-3xl sm:h-16 sm:w-16 sm:text-4xl">
                             🏡
                         </div>
                     </div>
@@ -171,7 +214,7 @@ function saveListsOrder() {
                         </div>
                     </div>
 
-                    <div class="relative mt-3 grid grid-cols-3 gap-2">
+                    <div class="relative mt-3 hidden grid-cols-3 gap-2 sm:grid">
                         <div class="home-stat-tile rounded-2xl px-3 py-3">
                             <div class="home-title text-xl font-bold">
                                 {{ localLists.length }}
@@ -219,7 +262,7 @@ function saveListsOrder() {
                             <div class="flex items-stretch">
                                 <button
                                     type="button"
-                                    class="list-drag-handle hidden w-10 shrink-0 items-center justify-center rounded-l-[2rem] text-xl text-[#A4B197] active:cursor-grabbing sm:flex"
+                                    class="list-drag-handle home-drag-handle-mobile flex w-8 shrink-0 items-center justify-center rounded-l-[2rem] text-lg active:cursor-grabbing sm:w-10 sm:text-xl"
                                     aria-label="Перетащить список"
                                 >
                                     ⋮⋮
@@ -262,8 +305,11 @@ function saveListsOrder() {
                                             </div>
                                         </div>
 
-                                        <div class="home-badge flex h-10 min-w-10 shrink-0 items-center justify-center rounded-full px-3 text-sm font-bold">
-                                            {{ list.active_tasks_count }}
+                                        <div
+                                            class="home-list-card-status flex h-10 min-w-10 shrink-0 items-center justify-center rounded-full px-3 text-sm font-bold"
+                                            :class="listStatusClass(list)"
+                                        >
+                                            {{ listStatusText(list) }}
                                         </div>
                                     </div>
                                 </Link>
@@ -288,7 +334,7 @@ function saveListsOrder() {
                         <button
                             type="button"
                             class="home-template-button min-h-12 rounded-2xl px-2 py-2 text-sm font-semibold"
-                            :disabled="form.processing"
+                            :disabled="form.processing || !isOnline"
                             @click="createTemplateList('Покупки', '🛒')"
                         >
                             🛒<br>Покупки
@@ -297,7 +343,7 @@ function saveListsOrder() {
                         <button
                             type="button"
                             class="home-template-button min-h-12 rounded-2xl px-2 py-2 text-sm font-semibold"
-                            :disabled="form.processing"
+                            :disabled="form.processing || !isOnline"
                             @click="createTemplateList('Дом', '🏡')"
                         >
                             🏡<br>Дом
@@ -306,7 +352,7 @@ function saveListsOrder() {
                         <button
                             type="button"
                             class="home-template-button min-h-12 rounded-2xl px-2 py-2 text-sm font-semibold"
-                            :disabled="form.processing"
+                            :disabled="form.processing || !isOnline"
                             @click="createTemplateList('Аптека', '💊')"
                         >
                             💊<br>Аптека

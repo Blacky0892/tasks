@@ -390,6 +390,29 @@ input {
         box-shadow: var(--home-shadow-floating);
     }
 
+    .home-network-status {
+        pointer-events: none;
+    }
+
+    .home-network-status > div {
+        pointer-events: auto;
+        box-shadow: 0 18px 44px rgb(40 51 38 / 0.14);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+    }
+
+    .home-network-status-offline {
+        background: color-mix(in srgb, #FEF3C7 92%, transparent);
+        color: #7C4A03;
+        border: 1px solid color-mix(in srgb, #F59E0B 28%, transparent);
+    }
+
+    .home-network-status-online {
+        background: color-mix(in srgb, var(--home-surface) 94%, transparent);
+        color: var(--home-text-soft);
+        border: 1px solid color-mix(in srgb, var(--home-border) 80%, transparent);
+    }
+
     .home-list-header-inner {
         background: linear-gradient(
             180deg,
@@ -409,6 +432,94 @@ input {
     .home-create-dock {
         bottom: max(env(safe-area-inset-bottom), 0.75rem);
     }
+
+    .home-focus-ring {
+        @apply focus-visible:outline-none;
+    }
+
+    .home-focus-ring:focus-visible {
+        outline: 3px solid color-mix(in srgb, var(--home-focus) 72%, white);
+        outline-offset: 3px;
+    }
+
+    .home-hero-card-compact {
+        background:
+            linear-gradient(
+                135deg,
+                color-mix(in srgb, var(--home-primary-soft) 72%, white) 0%,
+                color-mix(in srgb, var(--home-surface-soft) 88%, white) 100%
+            );
+        border: 1px solid color-mix(in srgb, var(--home-border-strong) 24%, transparent);
+        box-shadow: 0 14px 34px rgb(40 51 38 / 0.06);
+    }
+
+    .home-list-card-status {
+        background: color-mix(in srgb, var(--home-surface-soft) 82%, white);
+        color: var(--home-text-soft);
+        border: 1px solid color-mix(in srgb, var(--home-border) 80%, transparent);
+    }
+
+    .home-list-card-status-done {
+        background: color-mix(in srgb, var(--home-primary-soft) 72%, white);
+        color: var(--home-text);
+    }
+
+    .home-list-card-status-active {
+        background: color-mix(in srgb, var(--home-primary) 62%, white);
+        color: var(--home-text);
+    }
+
+    .home-list-card-status-empty {
+        background: color-mix(in srgb, var(--home-surface-soft) 72%, white);
+        color: var(--home-text-subtle);
+    }
+
+    .home-drag-handle-mobile {
+        color: color-mix(in srgb, var(--home-text-subtle) 72%, transparent);
+    }
+
+    .home-done-section-toggle {
+        background: color-mix(in srgb, var(--home-surface-soft) 74%, white);
+        color: var(--home-text-soft);
+        border: 1px solid color-mix(in srgb, var(--home-border) 80%, transparent);
+    }
+
+    .home-empty-state {
+        background:
+            radial-gradient(circle at top right, rgb(221 235 203 / 0.5), transparent 12rem),
+            color-mix(in srgb, var(--home-surface) 94%, transparent);
+        border: 1px solid var(--home-border);
+        box-shadow: var(--home-shadow-soft);
+    }
+}
+
+.home-primary-button,
+.home-secondary-button,
+.home-soft-button,
+.home-icon-button,
+.home-menu-button,
+.home-check-button,
+.home-done-check-button,
+.home-bottom-add-button,
+.home-bottom-side-button,
+.home-template-button,
+.home-composer-add {
+    @apply focus-visible:outline-none;
+}
+
+.home-primary-button:focus-visible,
+.home-secondary-button:focus-visible,
+.home-soft-button:focus-visible,
+.home-icon-button:focus-visible,
+.home-menu-button:focus-visible,
+.home-check-button:focus-visible,
+.home-done-check-button:focus-visible,
+.home-bottom-add-button:focus-visible,
+.home-bottom-side-button:focus-visible,
+.home-template-button:focus-visible,
+.home-composer-add:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--home-focus) 72%, white);
+    outline-offset: 3px;
 }
 
 @media (max-width: 640px) {
