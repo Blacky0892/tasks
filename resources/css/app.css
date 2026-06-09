@@ -1,4 +1,5 @@
 @import "tailwindcss";
+
 html {
     -webkit-tap-highlight-color: transparent;
 }
@@ -6,4 +7,38 @@ html {
 button,
 a {
     touch-action: manipulation;
+}
+
+@layer components {
+    .home-page {
+        @apply min-h-screen bg-[#F8FAF3] px-3 py-4 text-[#283326] sm:px-4 sm:py-6;
+    }
+
+    .home-card {
+        @apply bg-white shadow-sm ring-1 ring-[#D9E2D0];
+    }
+
+    .home-soft-card {
+        @apply bg-[#F0F6E9] shadow-sm ring-1 ring-[#D9E2D0];
+    }
+
+    .home-primary-button {
+        @apply bg-[#CFE0BB] text-[#283326] shadow-lg shadow-[#DDEBCB]/70 ring-1 ring-[#B8C9A6]/40 transition active:scale-[0.98] disabled:opacity-50;
+    }
+
+    .home-secondary-button {
+        @apply bg-white text-[#526743] shadow-sm ring-1 ring-[#D9E2D0] transition active:scale-[0.98] disabled:opacity-40;
+    }
+
+    .home-input {
+        @apply border border-[#D2DEC7] bg-[#F0F6E9] text-[#283326] outline-none transition placeholder:text-[#8B9982] focus:border-[#AFC39E] focus:bg-white;
+    }
+
+    .home-muted {
+        @apply text-[#738267];
+    }
+
+    .home-danger-button {
+        @apply bg-red-50 text-red-600 transition active:scale-[0.98];
+    }
 }
