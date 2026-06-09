@@ -82,8 +82,11 @@ const pendingDeleteTasks = ref([])
 const deleteTimers = new Map()
 
 const addTaskInput = ref(null)
+const showTaskComposer = ref(false)
 
 function focusAddTaskInput() {
+    showTaskComposer.value = true
+
     nextTick(() => {
         addTaskInput.value?.focus()
         addTaskInput.value?.scrollIntoView({
@@ -91,6 +94,16 @@ function focusAddTaskInput() {
             block: 'center',
         })
     })
+}
+
+function closeTaskComposer() {
+    if (form.processing) {
+        return
+    }
+
+    form.reset()
+    form.clearErrors()
+    showTaskComposer.value = false
 }
 
 const showListSettings = ref(false)
@@ -197,19 +210,15 @@ const doneTasks = computed(() => {
 })
 
 const visibleDoneTasks = computed(() => {
-    if (!showDoneTasks.value) {
-        return []
+    if (showDoneTasks.value) {
+        return doneTasks.value
     }
 
-    return doneTasks.value
+    return doneTasks.value.slice(0, 3)
 })
 
 const hiddenDoneTasksCount = computed(() => {
-    if (showDoneTasks.value) {
-        return 0
-    }
-
-    return doneTasks.value.length
+    return Math.max(doneTasks.value.length - visibleDoneTasks.value.length, 0)
 })
 
 const tasksTotal = computed(() => activeTasks.value.length + doneTasks.value.length + offlineTasks.value.length)
@@ -415,26 +424,44 @@ function saveTasksOrder() {
 
     <main class="home-page home-mobile-page" @click.self="closeTaskMenu">
         <div class="home-container pb-44 sm:pb-32">
-            <header class="home-list-header sticky top-0 z-20 -mx-3 mb-4 px-3 pt-1 sm:static sm:mx-0 sm:px-0 sm:pt-0">
-                <div class="home-list-header-inner rounded-b-[2rem] pb-3 pt-2 sm:rounded-none sm:pb-0 sm:pt-0">
-                    <Link
-                        :href="route('home')"
-                        class="home-heading-soft inline-flex min-h-10 items-center text-sm font-semibold transition hover:opacity-80"
-                    >
-                        ← Все списки
-                    </Link>
+            <header class="home-list-header sticky top-0 z-20 -mx-3 mb-5 px-3 pt-3 sm:static sm:mx-0 sm:px-0 sm:pt-0">
+                <div class="home-list-hero relative overflow-hidden rounded-b-[2.2rem] px-1 pb-4 pt-2 sm:rounded-[2rem] sm:px-4">
+                    <div class="home-list-hero-orb home-list-hero-orb-left" />
+                    <div class="home-list-hero-orb home-list-hero-orb-right" />
 
-                    <div class="mt-2 flex items-center gap-3">
-                        <div class="home-avatar-card flex h-14 w-14 shrink-0 items-center justify-center rounded-3xl text-3xl">
+                    <div class="relative z-10 flex items-center justify-between gap-3">
+                        <Link
+                            :href="route('home')"
+                            class="home-back-button inline-flex min-h-11 items-center gap-2 rounded-full px-3.5 text-sm font-bold transition active:scale-[0.98]"
+                        >
+                <span class="home-back-icon inline-flex h-7 w-7 items-center justify-center rounded-full">
+                    ←
+                </span>
+
+                            <span>Все списки</span>
+                        </Link>
+
+                        <button
+                            type="button"
+                            class="home-icon-button flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-xl sm:hidden"
+                            @click="openListSettings"
+                            aria-label="Настройки списка"
+                        >
+                            ⋯
+                        </button>
+                    </div>
+
+                    <div class="relative z-10 mt-4 flex items-center gap-3">
+                        <div class="home-avatar-card home-list-avatar flex h-16 w-16 shrink-0 items-center justify-center rounded-[1.6rem] text-3xl">
                             {{ list.emoji }}
                         </div>
 
                         <div class="min-w-0 flex-1">
-                            <h1 class="home-title truncate text-[26px] font-bold leading-tight tracking-tight sm:text-3xl">
+                            <h1 class="home-title truncate text-[28px] font-black leading-none tracking-tight sm:text-3xl">
                                 {{ list.title }}
                             </h1>
 
-                            <div class="home-muted mt-1 text-sm font-medium">
+                            <div class="home-muted mt-2 text-sm font-semibold">
                                 {{ listMood }}
                             </div>
                         </div>
@@ -449,18 +476,25 @@ function saveTasksOrder() {
                         </button>
                     </div>
 
-                    <div class="mt-3 rounded-[1.35rem] bg-white/45 p-3 ring-1 ring-[var(--home-border)]">
-                        <div class="flex items-center justify-between gap-3">
-                            <div class="home-muted text-xs font-bold uppercase tracking-wide">
-                                Прогресс
-                            </div>
-
-                            <div class="home-progress-percent-pill rounded-full px-3 py-1 text-xs font-bold">
-                                {{ progressPercent }}%
-                            </div>
+                    <div class="relative z-10 mt-4 grid grid-cols-3 gap-2">
+                        <div class="home-stat-pill rounded-[1.2rem] px-3 py-2">
+                            <div class="home-stat-label">Всего</div>
+                            <div class="home-stat-value">{{ tasksTotal }}</div>
                         </div>
 
-                        <div class="home-progress-track mt-2 h-2.5 overflow-hidden rounded-full">
+                        <div class="home-stat-pill rounded-[1.2rem] px-3 py-2">
+                            <div class="home-stat-label">Осталось</div>
+                            <div class="home-stat-value">{{ activeTasks.length }}</div>
+                        </div>
+
+                        <div class="home-stat-pill rounded-[1.2rem] px-3 py-2">
+                            <div class="home-stat-label">Готово</div>
+                            <div class="home-stat-value">{{ progressPercent }}%</div>
+                        </div>
+                    </div>
+
+                    <div class="relative z-10 mt-3 rounded-[1.35rem] bg-white/45 p-2.5 ring-1 ring-[var(--home-border)]">
+                        <div class="home-progress-track h-2.5 overflow-hidden rounded-full">
                             <div
                                 class="home-progress-bar h-full rounded-full transition-all duration-500"
                                 :style="{ width: `${progressPercent}%` }"
@@ -542,55 +576,85 @@ function saveTasksOrder() {
                 </form>
             </section>
 
-            <form
-                class="home-glass-card home-task-composer sticky z-30 mb-5 rounded-[2rem] p-2"
-                @submit.prevent="createTask"
+            <Transition
+                enter-active-class="transition duration-200 ease-out"
+                enter-from-class="-translate-y-2 opacity-0"
+                enter-to-class="translate-y-0 opacity-100"
+                leave-active-class="transition duration-150 ease-in"
+                leave-from-class="translate-y-0 opacity-100"
+                leave-to-class="-translate-y-2 opacity-0"
             >
-                <div class="flex items-stretch gap-2">
-                    <textarea
-                        ref="addTaskInput"
-                        v-model="form.title"
-                        class="home-input min-h-[72px] flex-1 resize-none rounded-[1.5rem] border-transparent px-4 py-4 text-[17px] leading-snug sm:min-h-[52px] sm:py-3 sm:text-base"
-                        placeholder="Новая задача или список строк..."
-                        autocomplete="off"
-                        rows="2"
-                    />
+                <form
+                    v-if="showTaskComposer"
+                    class="home-glass-card home-task-composer sticky top-[172px] z-30 mb-5 rounded-[2rem] p-2 sm:top-4"
+                    @submit.prevent="createTask"
+                >
+                    <div class="mb-2 flex items-center justify-between px-2 pt-1">
+                        <div class="home-muted text-xs font-bold uppercase tracking-wide">
+                            Новая задача
+                        </div>
 
-                    <button
-                        type="submit"
-                        class="home-composer-add grid min-h-[72px] w-[58px] shrink-0 place-items-center rounded-[1.5rem] text-[28px] font-normal leading-none transition active:scale-[0.96] disabled:opacity-50 sm:min-h-[52px] sm:w-[52px] sm:text-2xl"
-                        :disabled="form.processing || !form.title.trim()"
-                        aria-label="Добавить задачу"
+                        <button
+                            type="button"
+                            class="home-menu-button flex h-9 w-9 items-center justify-center rounded-full text-xl"
+                            aria-label="Закрыть поле добавления"
+                            @click="closeTaskComposer"
+                        >
+                            ×
+                        </button>
+                    </div>
+
+                    <div class="flex items-stretch gap-2">
+            <textarea
+                ref="addTaskInput"
+                v-model="form.title"
+                class="home-input min-h-[72px] flex-1 resize-none rounded-[1.5rem] border-transparent px-4 py-4 text-[17px] leading-snug sm:min-h-[52px] sm:py-3 sm:text-base"
+                placeholder="Новая задача или список строк..."
+                autocomplete="off"
+                rows="2"
+                @keydown.ctrl.enter.prevent="createTask"
+                @keydown.meta.enter.prevent="createTask"
+                @keydown.esc.prevent="closeTaskComposer"
+            />
+
+                        <button
+                            type="submit"
+                            class="home-composer-add grid min-h-[72px] w-[58px] shrink-0 place-items-center rounded-[1.5rem] text-[28px] font-normal leading-none transition active:scale-[0.96] disabled:opacity-50 sm:min-h-[52px] sm:w-[52px] sm:text-2xl"
+                            :disabled="form.processing || !form.title.trim()"
+                            aria-label="Добавить задачу"
+                        >
+                <span aria-hidden="true" class="-mt-0.5 leading-none">
+                    {{ form.processing ? '…' : '＋' }}
+                </span>
+                        </button>
+                    </div>
+
+                    <div
+                        v-if="form.errors.title"
+                        class="px-2 pt-2 text-sm text-red-500"
                     >
-                        <span aria-hidden="true" class="-mt-0.5 leading-none">{{ form.processing ? '…' : '＋' }}</span>
-                    </button>
-                </div>
+                        {{ form.errors.title }}
+                    </div>
 
-                <div
-                    v-if="form.errors.title"
-                    class="px-2 pt-2 text-sm text-red-500"
-                >
-                    {{ form.errors.title }}
-                </div>
+                    <div
+                        v-if="offlineTasks.length > 0"
+                        class="px-2 pt-2 text-xs font-semibold"
+                        :class="syncError ? 'text-red-500' : 'home-muted'"
+                    >
+                        <template v-if="isSyncingOfflineTasks">
+                            Отправляю сохранённые задачи…
+                        </template>
 
-                <div
-                    v-if="offlineTasks.length > 0"
-                    class="px-2 pt-2 text-xs font-semibold"
-                    :class="syncError ? 'text-red-500' : 'home-muted'"
-                >
-                    <template v-if="isSyncingOfflineTasks">
-                        Отправляю сохранённые задачи…
-                    </template>
+                        <template v-else-if="syncError">
+                            Не удалось отправить сохранённые задачи. Попробуем позже.
+                        </template>
 
-                    <template v-else-if="syncError">
-                        Не удалось отправить сохранённые задачи. Попробуем позже.
-                    </template>
-
-                    <template v-else>
-                        {{ offlineTasks.length }} {{ offlineTasks.length === 1 ? 'задача ждёт' : 'задачи ждут' }} отправки.
-                    </template>
-                </div>
-            </form>
+                        <template v-else>
+                            {{ offlineTasks.length }} {{ offlineTasks.length === 1 ? 'задача ждёт' : 'задачи ждут' }} отправки.
+                        </template>
+                    </div>
+                </form>
+            </Transition>
 
             <div
                 v-if="doneTasks.length > 0"
@@ -810,7 +874,7 @@ function saveTasksOrder() {
                     @click="showDoneTasks = !showDoneTasks"
                 >
         <span>
-            Выполнено · {{ doneTasks.length }}
+            {{ showDoneTasks ? 'Свернуть выполненные' : 'Выполнено' }} · {{ doneTasks.length }}
         </span>
 
                     <span class="text-base leading-none">
@@ -1065,5 +1129,89 @@ function saveTasksOrder() {
 }
 .task-drag-handle {
     touch-action: none;
+}
+.home-list-hero {
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.82), rgba(245, 250, 239, 0.72)),
+        radial-gradient(circle at 15% 10%, rgba(205, 226, 183, 0.55), transparent 34%),
+        radial-gradient(circle at 95% 20%, rgba(231, 239, 218, 0.9), transparent 34%);
+    box-shadow: 0 16px 38px rgba(76, 96, 63, 0.08);
+    border: 1px solid rgba(204, 221, 190, 0.7);
+}
+
+.home-list-hero-orb {
+    position: absolute;
+    pointer-events: none;
+    border-radius: 999px;
+    filter: blur(1px);
+    opacity: 0.65;
+}
+
+.home-list-hero-orb-left {
+    left: -24px;
+    top: 54px;
+    width: 92px;
+    height: 92px;
+    background: rgba(211, 229, 190, 0.55);
+}
+
+.home-list-hero-orb-right {
+    right: -38px;
+    top: -26px;
+    width: 118px;
+    height: 118px;
+    background: rgba(239, 246, 229, 0.9);
+}
+
+.home-back-button {
+    color: var(--home-text);
+    background: rgba(255, 255, 255, 0.62);
+    border: 1px solid rgba(205, 221, 190, 0.82);
+    box-shadow: 0 8px 22px rgba(79, 103, 63, 0.07);
+    backdrop-filter: blur(14px);
+}
+
+.home-back-icon {
+    color: var(--home-text);
+    background: rgba(224, 237, 207, 0.88);
+}
+
+.home-list-avatar {
+    box-shadow:
+        0 12px 26px rgba(85, 109, 66, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.home-stat-pill {
+    background: rgba(255, 255, 255, 0.58);
+    border: 1px solid rgba(207, 222, 191, 0.72);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
+}
+
+.home-stat-label {
+    color: var(--home-text-subtle);
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.home-stat-value {
+    margin-top: 5px;
+    color: var(--home-text);
+    font-size: 17px;
+    font-weight: 900;
+    line-height: 1;
+}
+
+@media (max-width: 640px) {
+    .home-container {
+        padding-top: 0.75rem;
+    }
+
+    .home-list-header {
+        backdrop-filter: blur(18px);
+    }
 }
 </style>
