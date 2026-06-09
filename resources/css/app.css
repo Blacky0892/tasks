@@ -1,5 +1,42 @@
 @import "tailwindcss";
 
+:root {
+    --home-bg: #F8FAF3;
+
+    --home-surface: #FFFFFF;
+    --home-surface-soft: #F0F6E9;
+    --home-surface-muted: #E7F2D8;
+
+    --home-primary: #CFE0BB;
+    --home-primary-soft: #DDEBCB;
+    --home-primary-muted: #E4EEDB;
+
+    --home-border: #D9E2D0;
+    --home-border-strong: #B8C9A6;
+    --home-border-input: #D2DEC7;
+    --home-focus: #AFC39E;
+
+    --home-text: #283326;
+    --home-text-soft: #526743;
+    --home-text-muted: #738267;
+    --home-text-subtle: #8B9982;
+    --home-text-heading-soft: #65755B;
+
+    --home-danger-bg: #FEF2F2;
+    --home-danger-text: #DC2626;
+
+    --home-toast-bg: #53634C;
+
+    --home-radius-xl: 1.5rem;
+    --home-radius-2xl: 1.75rem;
+    --home-radius-3xl: 2rem;
+
+    --home-shadow-soft: 0 1px 2px rgb(40 51 38 / 0.04);
+    --home-shadow-floating: 0 16px 40px rgb(221 235 203 / 0.55);
+
+    --home-avatar-fallback: #6D8061;
+}
+
 html {
     -webkit-tap-highlight-color: transparent;
 }
@@ -11,34 +48,171 @@ a {
 
 @layer components {
     .home-page {
-        @apply min-h-screen bg-[#F8FAF3] px-3 py-4 text-[#283326] sm:px-4 sm:py-6;
+        min-height: 100vh;
+        background: var(--home-bg);
+        color: var(--home-text);
+        @apply px-3 py-4 sm:px-4 sm:py-6;
+    }
+
+    .home-container {
+        @apply mx-auto max-w-xl;
     }
 
     .home-card {
-        @apply bg-white shadow-sm ring-1 ring-[#D9E2D0];
+        background: var(--home-surface);
+        border: 1px solid var(--home-border);
+        box-shadow: var(--home-shadow-soft);
     }
 
     .home-soft-card {
-        @apply bg-[#F0F6E9] shadow-sm ring-1 ring-[#D9E2D0];
+        background: var(--home-surface-soft);
+        border: 1px solid var(--home-border);
+        box-shadow: var(--home-shadow-soft);
+    }
+
+    .home-glass-card {
+        background: color-mix(in srgb, var(--home-surface) 92%, transparent);
+        border: 1px solid var(--home-border);
+        box-shadow: var(--home-shadow-soft);
+        backdrop-filter: blur(12px);
+    }
+
+    .home-hero-card {
+        background:
+            linear-gradient(
+                135deg,
+                #EEF6E5 0%,
+                var(--home-primary-soft) 100%
+            );
+        border: 1px solid color-mix(in srgb, var(--home-border-strong) 30%, transparent);
+        box-shadow: var(--home-shadow-floating);
     }
 
     .home-primary-button {
-        @apply bg-[#CFE0BB] text-[#283326] shadow-lg shadow-[#DDEBCB]/70 ring-1 ring-[#B8C9A6]/40 transition active:scale-[0.98] disabled:opacity-50;
+        background: var(--home-primary);
+        color: var(--home-text);
+        border: 1px solid color-mix(in srgb, var(--home-border-strong) 40%, transparent);
+        box-shadow: 0 12px 28px rgb(221 235 203 / 0.7);
+        @apply transition active:scale-[0.98] disabled:opacity-50;
     }
 
     .home-secondary-button {
-        @apply bg-white text-[#526743] shadow-sm ring-1 ring-[#D9E2D0] transition active:scale-[0.98] disabled:opacity-40;
+        background: var(--home-surface);
+        color: var(--home-text-soft);
+        border: 1px solid var(--home-border);
+        box-shadow: var(--home-shadow-soft);
+        @apply transition active:scale-[0.98] disabled:opacity-40;
+    }
+
+    .home-soft-button {
+        background: var(--home-surface-soft);
+        color: var(--home-text-heading-soft);
+        @apply transition active:scale-[0.98] disabled:opacity-50;
+    }
+
+    .home-icon-button {
+        background: var(--home-surface);
+        color: var(--home-text-heading-soft);
+        border: 1px solid var(--home-border);
+        box-shadow: var(--home-shadow-soft);
+        @apply transition active:scale-95;
     }
 
     .home-input {
-        @apply border border-[#D2DEC7] bg-[#F0F6E9] text-[#283326] outline-none transition placeholder:text-[#8B9982] focus:border-[#AFC39E] focus:bg-white;
+        background: var(--home-surface-soft);
+        color: var(--home-text);
+        border: 1px solid var(--home-border-input);
+        outline: none;
+        @apply transition;
     }
 
-    .home-muted {
-        @apply text-[#738267];
+    .home-input::placeholder {
+        color: var(--home-text-subtle);
+    }
+
+    .home-input:focus {
+        background: var(--home-surface);
+        border-color: var(--home-focus);
     }
 
     .home-danger-button {
-        @apply bg-red-50 text-red-600 transition active:scale-[0.98];
+        background: var(--home-danger-bg);
+        color: var(--home-danger-text);
+        @apply transition active:scale-[0.98];
+    }
+
+    .home-title {
+        color: var(--home-text);
+    }
+
+    .home-muted {
+        color: var(--home-text-muted);
+    }
+
+    .home-subtle {
+        color: var(--home-text-subtle);
+    }
+
+    .home-soft-text {
+        color: var(--home-text-soft);
+    }
+
+    .home-heading-soft {
+        color: var(--home-text-heading-soft);
+    }
+
+    .home-badge {
+        background: var(--home-surface-muted);
+        color: var(--home-text-soft);
+    }
+
+    .home-avatar-card {
+        background: var(--home-surface);
+        border: 1px solid var(--home-border);
+        box-shadow: var(--home-shadow-soft);
+    }
+
+    .home-emoji-tile {
+        background: var(--home-surface-soft);
+        border: 1px solid var(--home-border);
+    }
+
+    .home-check-button {
+        background: var(--home-surface-soft);
+        border: 2px solid #C6D5B8;
+        @apply transition active:scale-90;
+    }
+
+    .home-check-button:hover {
+        border-color: var(--home-focus);
+    }
+
+    .home-done-check-button {
+        background: var(--home-primary);
+        color: var(--home-text);
+        box-shadow: 0 8px 18px rgb(221 235 203 / 0.6);
+        @apply transition active:scale-90;
+    }
+
+    .home-bottom-nav {
+        background: color-mix(in srgb, var(--home-bg) 90%, transparent);
+        border-top: 1px solid color-mix(in srgb, var(--home-border) 80%, transparent);
+        backdrop-filter: blur(12px);
+    }
+
+    .home-toast {
+        background: var(--home-toast-bg);
+        color: white;
+        box-shadow: var(--home-shadow-floating);
+    }
+
+    .home-delete-button {
+        color: color-mix(in srgb, var(--home-text-subtle) 50%, transparent);
+        @apply transition active:scale-90;
+    }
+
+    .home-delete-button:hover {
+        background: var(--home-danger-bg);
+        color: #F87171;
     }
 }

@@ -1,6 +1,7 @@
 <script setup>
 import { Head, Link, router, useForm } from '@inertiajs/vue3'
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
+import draggable from 'vuedraggable'
 
 const props = defineProps({
     list: {
@@ -8,6 +9,23 @@ const props = defineProps({
         required: true,
     },
 })
+
+const localActiveTasks = ref([])
+const localDoneTasks = ref([])
+
+function syncLocalTasks(tasks) {
+    localActiveTasks.value = tasks.filter(task => !task.is_done)
+    localDoneTasks.value = tasks.filter(task => task.is_done)
+}
+
+syncLocalTasks(props.list.tasks)
+
+watch(
+    () => props.list.tasks,
+    value => {
+        syncLocalTasks(value)
+    },
+)
 
 const form = useForm({
     title: '',
@@ -100,16 +118,12 @@ function saveEditTask(task) {
     })
 }
 
-const visibleTasks = computed(() => {
-    return props.list.tasks.filter(task => !pendingDeleteIds.value.includes(task.id))
-})
-
 const activeTasks = computed(() => {
-    return visibleTasks.value.filter(task => !task.is_done)
+    return localActiveTasks.value.filter(task => !pendingDeleteIds.value.includes(task.id))
 })
 
 const doneTasks = computed(() => {
-    return visibleTasks.value.filter(task => task.is_done)
+    return localDoneTasks.value.filter(task => !pendingDeleteIds.value.includes(task.id))
 })
 
 function createTask() {
@@ -200,39 +214,48 @@ function openListSettings() {
 function handleBottomAddClick() {
     focusAddTaskInput()
 }
+
+function saveTasksOrder() {
+    router.patch(route('tasks.reorder', props.list.id), {
+        ids: localActiveTasks.value.map(task => task.id),
+    }, {
+        preserveScroll: true,
+        preserveState: true,
+    })
+}
 </script>
 
 <template>
     <Head :title="list.title" />
 
-    <main class="min-h-screen bg-[#F8FAF3] px-3 py-4 text-[#283326] sm:px-4 sm:py-6">
-        <div class="mx-auto max-w-xl pb-32">
+    <main class="home-page">
+        <div class="home-container pb-32">
             <header class="mb-5">
                 <Link
                     :href="route('home')"
-                    class="text-sm font-semibold text-[#65755B] transition hover:text-[#465740]"
+                    class="home-heading-soft text-sm font-semibold transition hover:opacity-80"
                 >
                     ← Все списки
                 </Link>
 
                 <div class="mt-4 flex items-center gap-3">
-                    <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-3xl bg-white text-3xl shadow-sm ring-1 ring-[#D9E2D0]">
+                    <div class="home-avatar-card flex h-14 w-14 shrink-0 items-center justify-center rounded-3xl text-3xl">
                         {{ list.emoji }}
                     </div>
 
                     <div class="min-w-0 flex-1">
-                        <h1 class="truncate text-2xl font-bold text-[#283326] sm:text-3xl">
+                        <h1 class="home-title truncate text-2xl font-bold sm:text-3xl">
                             {{ list.title }}
                         </h1>
 
-                        <div class="mt-1 text-sm font-medium text-[#738267]">
+                        <div class="home-muted mt-1 text-sm font-medium">
                             {{ activeTasks.length }} активных · {{ doneTasks.length }} выполнено
                         </div>
                     </div>
 
                     <button
                         type="button"
-                        class="hidden h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-xl text-[#65755B] shadow-sm ring-1 ring-[#D9E2D0] transition hover:bg-[#F0F6E9] sm:flex"
+                        class="home-icon-button hidden h-11 w-11 shrink-0 items-center justify-center rounded-full text-xl hover:bg-[var(--home-surface-soft)] sm:flex"
                         @click="showListSettings = !showListSettings"
                     >
                         ⋯
@@ -243,19 +266,19 @@ function handleBottomAddClick() {
             <section
                 v-if="showListSettings"
                 id="list-settings"
-                class="mb-5 rounded-[2rem] bg-white p-5 shadow-sm ring-1 ring-[#D9E2D0]"
+                class="home-card mb-5 rounded-[2rem] p-5"
             >
                 <form @submit.prevent="updateList">
                     <div class="flex gap-3">
                         <input
                             v-model="listForm.emoji"
-                            class="h-12 w-16 rounded-2xl border border-[#D2DEC7] bg-[#F0F6E9] text-center text-2xl outline-none transition focus:border-[#AFC39E] focus:bg-white"
+                            class="home-input h-12 w-16 rounded-2xl text-center text-2xl"
                             maxlength="4"
                         >
 
                         <input
                             v-model="listForm.title"
-                            class="h-12 min-w-0 flex-1 rounded-2xl border border-[#D2DEC7] bg-[#F0F6E9] px-4 text-[#283326] outline-none transition placeholder:text-[#8B9982] focus:border-[#AFC39E] focus:bg-white"
+                            class="home-input h-12 min-w-0 flex-1 rounded-2xl px-4"
                             placeholder="Название списка"
                         >
                     </div>
@@ -270,7 +293,7 @@ function handleBottomAddClick() {
                     <div class="mt-4 flex gap-2">
                         <button
                             type="submit"
-                            class="flex-1 rounded-2xl bg-[#CFE0BB] px-4 py-3 font-semibold text-[#283326] shadow-lg shadow-[#DDEBCB]/60 transition active:scale-[0.98] disabled:opacity-50"
+                            class="home-primary-button flex-1 rounded-2xl px-4 py-3 font-semibold"
                             :disabled="listForm.processing"
                         >
                             Сохранить
@@ -278,7 +301,7 @@ function handleBottomAddClick() {
 
                         <button
                             type="button"
-                            class="rounded-2xl bg-[#F0F6E9] px-4 py-3 font-medium text-[#65755B] transition active:scale-[0.98]"
+                            class="home-soft-button rounded-2xl px-4 py-3 font-medium"
                             @click="showListSettings = false"
                         >
                             Отмена
@@ -287,7 +310,7 @@ function handleBottomAddClick() {
 
                     <button
                         type="button"
-                        class="mt-4 w-full rounded-2xl bg-red-50 px-4 py-3 font-medium text-red-600 transition active:scale-[0.98]"
+                        class="home-danger-button mt-4 w-full rounded-2xl px-4 py-3 font-medium"
                         @click="archiveList"
                     >
                         Архивировать список
@@ -296,22 +319,22 @@ function handleBottomAddClick() {
             </section>
 
             <form
-                class="sticky top-2 z-10 mb-5 rounded-[2rem] bg-white/95 p-2 shadow-sm ring-1 ring-[#D9E2D0] backdrop-blur"
+                class="home-glass-card sticky top-2 z-10 mb-5 rounded-[2rem] p-2"
                 @submit.prevent="createTask"
             >
                 <div class="flex items-stretch gap-2">
-        <textarea
-            ref="addTaskInput"
-            v-model="form.title"
-            class="min-h-[68px] flex-1 resize-none rounded-[1.5rem] border border-transparent bg-[#F0F6E9] px-4 py-5 text-[17px] leading-snug text-[#283326] outline-none transition placeholder:text-[#8B9982] focus:border-[#AFC39E] focus:bg-white sm:min-h-[52px] sm:py-3 sm:text-base"
-            placeholder="Добавить задачу..."
-            autocomplete="off"
-            rows="1"
-        />
+                    <textarea
+                        ref="addTaskInput"
+                        v-model="form.title"
+                        class="home-input min-h-[68px] flex-1 resize-none rounded-[1.5rem] border-transparent px-4 py-5 text-[17px] leading-snug sm:min-h-[52px] sm:py-3 sm:text-base"
+                        placeholder="Добавить задачу..."
+                        autocomplete="off"
+                        rows="1"
+                    />
 
                     <button
                         type="submit"
-                        class="flex min-h-[68px] w-[58px] shrink-0 items-center justify-center rounded-[1.5rem] bg-[#E4EEDB] text-2xl font-medium leading-none text-[#65755B] ring-1 ring-[#D9E2D0] transition active:scale-[0.96] disabled:opacity-50 sm:min-h-[52px] sm:w-[52px]"
+                        class="flex min-h-[68px] w-[58px] shrink-0 items-center justify-center rounded-[1.5rem] bg-[var(--home-primary-muted)] text-2xl font-medium leading-none text-[var(--home-text-heading-soft)] ring-1 ring-[var(--home-border)] transition active:scale-[0.96] disabled:opacity-50 sm:min-h-[52px] sm:w-[52px]"
                         :disabled="form.processing || !form.title.trim()"
                         aria-label="Добавить задачу"
                     >
@@ -333,7 +356,7 @@ function handleBottomAddClick() {
             >
                 <button
                     type="button"
-                    class="w-full rounded-[1.75rem] bg-white px-5 py-4 text-base font-semibold text-[#526743] shadow-sm ring-1 ring-[#D9E2D0] transition active:scale-[0.99]"
+                    class="home-secondary-button w-full rounded-[1.75rem] px-5 py-4 text-base font-semibold active:scale-[0.99]"
                     @click="repeatDoneTasks"
                 >
                     ↺ Повторить выполненные
@@ -343,82 +366,97 @@ function handleBottomAddClick() {
             <section class="space-y-3">
                 <div
                     v-if="activeTasks.length === 0 && doneTasks.length === 0"
-                    class="rounded-[2rem] bg-white p-5 shadow-sm ring-1 ring-[#D9E2D0]"
+                    class="home-card rounded-[2rem] p-5"
                 >
-                    <div class="text-lg font-semibold text-[#283326]">
+                    <div class="home-title text-lg font-semibold">
                         Пока задач нет
                     </div>
 
-                    <div class="mt-2 text-sm text-[#738267]">
+                    <div class="home-muted mt-2 text-sm">
                         Добавьте первый пункт в этот список.
                     </div>
                 </div>
 
-                <TransitionGroup
-                    name="task-list"
+                <draggable
+                    v-model="localActiveTasks"
+                    item-key="id"
+                    handle=".task-drag-handle"
                     tag="div"
                     class="space-y-3"
+                    ghost-class="opacity-40"
+                    chosen-class="scale-[0.99]"
+                    animation="180"
+                    @end="saveTasksOrder"
                 >
-                    <div
-                        v-for="task in activeTasks"
-                        :key="task.id"
-                        class="rounded-[1.75rem] bg-white p-3 shadow-sm ring-1 ring-[#D9E2D0] transition active:scale-[0.99] sm:p-4"
-                    >
-                        <div class="flex min-h-[48px] items-center gap-3">
-                            <button
-                                type="button"
-                                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[#C6D5B8] bg-[#F0F6E9] transition hover:border-[#AFC39E] active:scale-90"
-                                aria-label="Отметить выполненной"
-                                @click="toggleTask(task)"
-                            />
+                    <template #item="{ element: task }">
+                        <div
+                            v-if="!pendingDeleteIds.includes(task.id)"
+                            class="home-card rounded-[1.75rem] p-3 transition active:scale-[0.99] sm:p-4"
+                        >
+                            <div class="flex min-h-[48px] items-center gap-3">
+                                <button
+                                    type="button"
+                                    class="task-drag-handle flex h-10 w-7 shrink-0 items-center justify-center rounded-full text-xl text-[var(--home-text-subtle)] active:cursor-grabbing"
+                                    aria-label="Перетащить задачу"
+                                >
+                                    ⋮⋮
+                                </button>
 
-                            <div
-                                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
-                                :style="{ backgroundColor: task.creator?.avatar_color || '#6D8061' }"
-                                :title="task.creator?.name"
-                            >
-                                {{ userInitials(task.creator?.name) }}
+                                <button
+                                    type="button"
+                                    class="home-check-button flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+                                    aria-label="Отметить выполненной"
+                                    @click="toggleTask(task)"
+                                />
+
+                                <div
+                                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                                    :style="{ backgroundColor: task.creator?.avatar_color || 'var(--home-avatar-fallback)' }"
+                                    :title="task.creator?.name"
+                                >
+                                    {{ userInitials(task.creator?.name) }}
+                                </div>
+
+                                <textarea
+                                    v-if="editingTaskId === task.id"
+                                    ref="editingInput"
+                                    v-model="editingTitle"
+                                    class="home-input min-h-[64px] min-w-0 flex-1 resize-none rounded-2xl px-3 py-2 text-base font-semibold leading-snug sm:min-h-[44px] sm:text-lg"
+                                    rows="2"
+                                    @keydown.ctrl.enter.prevent="saveEditTask(task)"
+                                    @keydown.meta.enter.prevent="saveEditTask(task)"
+                                    @keydown.esc.prevent="cancelEditTask"
+                                    @blur="saveEditTask(task)"
+                                />
+
+                                <button
+                                    v-else
+                                    type="button"
+                                    class="home-title min-w-0 flex-1 text-left text-base font-semibold leading-snug line-clamp-2 sm:text-lg"
+                                    @click="startEditTask(task)"
+                                >
+                                    {{ task.title }}
+                                </button>
+
+                                <button
+                                    type="button"
+                                    class="home-delete-button flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xl"
+                                    @click="deleteTask(task)"
+                                    aria-label="Удалить задачу"
+                                >
+                                    ×
+                                </button>
                             </div>
-
-                            <textarea
-                                v-if="editingTaskId === task.id"
-                                ref="editingInput"
-                                v-model="editingTitle"
-                                class="min-h-[64px] min-w-0 flex-1 resize-none rounded-2xl border border-[#D2DEC7] bg-[#F0F6E9] px-3 py-2 text-base font-semibold leading-snug text-[#283326] outline-none transition focus:border-[#AFC39E] focus:bg-white sm:min-h-[44px] sm:text-lg"
-                                rows="2"
-                                @keydown.ctrl.enter.prevent="saveEditTask(task)"
-                                @keydown.meta.enter.prevent="saveEditTask(task)"
-                                @keydown.esc.prevent="cancelEditTask"
-                                @blur="saveEditTask(task)"
-                            />
-
-                            <button
-                                v-else
-                                type="button"
-                                class="min-w-0 flex-1 text-left text-base font-semibold leading-snug text-[#283326] line-clamp-2 sm:text-lg"
-                                @click="startEditTask(task)"
-                            >
-                                {{ task.title }}
-                            </button>
-
-                            <button
-                                type="button"
-                                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xl text-[#8B9982]/50 transition hover:bg-red-50 hover:text-red-400 active:scale-90 active:bg-red-100"
-                                @click="deleteTask(task)"
-                                aria-label="Удалить задачу"
-                            >
-                                ×
-                            </button>
                         </div>
-                    </div>
-                </TransitionGroup>
+                    </template>
+                </draggable>
             </section>
 
             <section
                 v-if="doneTasks.length > 0"
                 class="mt-8 pb-6"
             >
-                <div class="mb-3 px-2 text-xs font-bold uppercase tracking-wide text-[#8B9982]">
+                <div class="home-subtle mb-3 px-2 text-xs font-bold uppercase tracking-wide">
                     Выполнено
                 </div>
 
@@ -430,12 +468,12 @@ function handleBottomAddClick() {
                     <div
                         v-for="task in doneTasks"
                         :key="task.id"
-                        class="rounded-[1.75rem] bg-[#F0F6E9]/70 p-3 text-[#738267] shadow-sm ring-1 ring-[#D9E2D0] transition active:scale-[0.99] sm:p-4"
+                        class="home-soft-card rounded-[1.75rem] p-3 opacity-80 transition active:scale-[0.99] sm:p-4"
                     >
                         <div class="flex items-center gap-3">
                             <button
                                 type="button"
-                                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#CFE0BB] text-sm font-bold text-[#283326] shadow-sm shadow-[#DDEBCB]/60 transition active:scale-90"
+                                class="home-done-check-button flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold"
                                 aria-label="Вернуть в активные"
                                 @click="toggleTask(task)"
                             >
@@ -444,7 +482,7 @@ function handleBottomAddClick() {
 
                             <div
                                 class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white opacity-70"
-                                :style="{ backgroundColor: task.creator?.avatar_color || '#6D8061' }"
+                                :style="{ backgroundColor: task.creator?.avatar_color || 'var(--home-avatar-fallback)' }"
                                 :title="task.creator?.name"
                             >
                                 {{ userInitials(task.creator?.name) }}
@@ -454,7 +492,7 @@ function handleBottomAddClick() {
                                 v-if="editingTaskId === task.id"
                                 ref="editingInput"
                                 v-model="editingTitle"
-                                class="min-h-[64px] min-w-0 flex-1 resize-none rounded-2xl border border-[#D2DEC7] bg-white px-3 py-2 text-base font-semibold leading-snug text-[#283326] outline-none transition focus:border-[#AFC39E] sm:min-h-[44px] sm:text-lg"
+                                class="home-input min-h-[64px] min-w-0 flex-1 resize-none rounded-2xl px-3 py-2 text-base font-semibold leading-snug sm:min-h-[44px] sm:text-lg"
                                 rows="2"
                                 @keydown.ctrl.enter.prevent="saveEditTask(task)"
                                 @keydown.meta.enter.prevent="saveEditTask(task)"
@@ -465,7 +503,7 @@ function handleBottomAddClick() {
                             <button
                                 v-else
                                 type="button"
-                                class="min-w-0 flex-1 text-left text-base font-medium leading-snug text-[#738267] line-clamp-2 line-through decoration-[#AFC39E] sm:text-lg"
+                                class="home-muted min-w-0 flex-1 text-left text-base font-medium leading-snug line-clamp-2 line-through decoration-[var(--home-focus)] sm:text-lg"
                                 @click="startEditTask(task)"
                             >
                                 {{ task.title }}
@@ -473,7 +511,7 @@ function handleBottomAddClick() {
 
                             <button
                                 type="button"
-                                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xl text-[#8B9982]/50 transition hover:bg-red-50 hover:text-red-400 active:scale-90 active:bg-red-100"
+                                class="home-delete-button flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xl"
                                 @click="deleteTask(task)"
                                 aria-label="Удалить задачу"
                             >
@@ -485,11 +523,11 @@ function handleBottomAddClick() {
             </section>
         </div>
 
-        <nav class="fixed inset-x-0 bottom-0 z-30 border-t border-[#D9E2D0]/80 bg-[#F8FAF3]/90 px-3 pb-[max(env(safe-area-inset-bottom),12px)] pt-3 backdrop-blur sm:hidden">
+        <nav class="home-bottom-nav fixed inset-x-0 bottom-0 z-30 px-3 pb-[max(env(safe-area-inset-bottom),12px)] pt-3 sm:hidden">
             <div class="mx-auto grid max-w-xl grid-cols-3 gap-2">
                 <button
                     type="button"
-                    class="flex min-h-[54px] flex-col items-center justify-center rounded-2xl bg-[#CFE0BB] px-2 text-sm font-semibold text-[#283326] shadow-lg shadow-[#DDEBCB]/70 ring-1 ring-[#B8C9A6]/40 transition active:scale-[0.98]"
+                    class="home-primary-button flex min-h-[54px] flex-col items-center justify-center rounded-2xl px-2 text-sm font-semibold"
                     @click="handleBottomAddClick"
                 >
                     <span class="text-lg leading-none">+</span>
@@ -498,7 +536,7 @@ function handleBottomAddClick() {
 
                 <button
                     type="button"
-                    class="flex min-h-[54px] flex-col items-center justify-center rounded-2xl bg-white px-2 text-sm font-semibold text-[#526743] shadow-sm ring-1 ring-[#D9E2D0] transition active:scale-[0.98] disabled:opacity-40"
+                    class="home-secondary-button flex min-h-[54px] flex-col items-center justify-center rounded-2xl px-2 text-sm font-semibold"
                     :disabled="doneTasks.length === 0"
                     @click="repeatDoneTasks"
                 >
@@ -508,7 +546,7 @@ function handleBottomAddClick() {
 
                 <button
                     type="button"
-                    class="flex min-h-[54px] flex-col items-center justify-center rounded-2xl bg-white px-2 text-sm font-semibold text-[#526743] shadow-sm ring-1 ring-[#D9E2D0] transition active:scale-[0.98]"
+                    class="home-secondary-button flex min-h-[54px] flex-col items-center justify-center rounded-2xl px-2 text-sm font-semibold"
                     @click="openListSettings"
                 >
                     <span class="text-lg leading-none">⋯</span>
@@ -529,7 +567,7 @@ function handleBottomAddClick() {
                 v-if="pendingDeleteTasks.length > 0"
                 class="fixed inset-x-0 bottom-24 z-40 px-3 sm:bottom-6"
             >
-                <div class="mx-auto flex max-w-xl items-center justify-between gap-3 rounded-[1.5rem] bg-[#53634C] px-4 py-3 text-white shadow-xl shadow-[#DDEBCB]/70">
+                <div class="home-toast mx-auto flex max-w-xl items-center justify-between gap-3 rounded-[1.5rem] px-4 py-3">
                     <div class="min-w-0">
                         <div class="text-sm font-semibold">
                             Задача удалена

@@ -34,9 +34,14 @@ class FamilyListController extends Controller
             'emoji' => ['nullable', 'string', 'max:10'],
         ]);
 
+        $maxSortOrder = FamilyList::query()
+            ->whereNull('archived_at')
+            ->max('sort_order');
+
         FamilyList::query()->create([
             'title' => $validated['title'],
             'emoji' => $validated['emoji'] ?: '📝',
+            'sort_order' => ((int) $maxSortOrder) + 1,
             'created_by' => $request->user()->id,
         ]);
 
@@ -78,8 +83,9 @@ class FamilyListController extends Controller
                         'completedBy:id,name,avatar_color',
                     ])
                     ->orderBy('is_done')
+                    ->orderByRaw('CASE WHEN is_done = 0 THEN sort_order END ASC')
+                    ->orderByRaw('CASE WHEN is_done = 0 THEN created_at END DESC')
                     ->orderByRaw('CASE WHEN is_done = 1 THEN completed_at END DESC')
-                    ->orderBy('sort_order')
                     ->orderByDesc('created_at');
             },
         ]);
@@ -107,6 +113,24 @@ class FamilyListController extends Controller
                 'completed_at' => null,
                 'sort_order' => $maxSortOrder + $index + 1,
             ]);
+        }
+
+        return back();
+    }
+
+    public function reorder(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'ids' => ['required', 'array'],
+            'ids.*' => ['integer', 'exists:family_lists,id'],
+        ]);
+
+        foreach ($validated['ids'] as $index => $id) {
+            FamilyList::query()
+                ->whereKey($id)
+                ->update([
+                    'sort_order' => $index + 1,
+                ]);
         }
 
         return back();

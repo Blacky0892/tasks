@@ -68,4 +68,32 @@ class TaskController extends Controller
 
         return back();
     }
+
+    public function reorder(Request $request, FamilyList $list): RedirectResponse
+    {
+        $validated = $request->validate([
+            'ids' => ['required', 'array'],
+            'ids.*' => ['integer', 'exists:tasks,id'],
+        ]);
+
+        $tasks = $list->tasks()
+            ->whereIn('id', $validated['ids'])
+            ->where('is_done', false)
+            ->get()
+            ->keyBy('id');
+
+        foreach ($validated['ids'] as $index => $id) {
+            $task = $tasks->get($id);
+
+            if (!$task) {
+                continue;
+            }
+
+            $task->update([
+                'sort_order' => $index + 1,
+            ]);
+        }
+
+        return back();
+    }
 }

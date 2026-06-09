@@ -10,7 +10,7 @@
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
 
-        <meta name="theme-color" content="#1c1917">
+        <meta name="theme-color" content="#DDEBCB">
         <meta name="application-name" content="Наш дом">
 
         <meta name="mobile-web-app-capable" content="yes">

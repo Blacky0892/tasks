@@ -13,10 +13,15 @@ Route::middleware(['auth'])->group(function () {
 
     Route::post('/lists', [FamilyListController::class, 'store'])->name('lists.store');
     Route::get('/lists/{list}', [FamilyListController::class, 'show'])->name('lists.show');
+    Route::patch('/lists/reorder', [FamilyListController::class, 'reorder'])
+        ->name('lists.reorder');
     Route::patch('/lists/{list}', [FamilyListController::class, 'update'])->name('lists.update');
     Route::delete('/lists/{list}', [FamilyListController::class, 'destroy'])->name('lists.destroy');
     Route::post('/lists/{list}/repeat-done-tasks', [FamilyListController::class, 'repeatDoneTasks'])
         ->name('lists.repeat-done-tasks');
+
+    Route::patch('/lists/{list}/tasks/reorder', [TaskController::class, 'reorder'])
+        ->name('tasks.reorder');
 
     Route::post('/lists/{list}/tasks', [TaskController::class, 'store'])->name('tasks.store');
     Route::patch('/tasks/{task}', [TaskController::class, 'update'])->name('tasks.update');
