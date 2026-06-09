@@ -10,7 +10,7 @@ defineProps({
 })
 
 const page = usePage()
-const user = computed(() => page.props.auth.user)
+const user = computed(() => page.props.auth?.user ?? null)
 
 const showCreateForm = ref(false)
 
@@ -46,7 +46,7 @@ function createList() {
                 </h1>
 
                 <div class="mt-2 text-stone-600">
-                    {{ user.name }}, здесь ваши списки.
+                    {{ user?.name ?? 'Привет' }}, здесь ваши списки.
                 </div>
             </header>
 
