@@ -32,7 +32,7 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
-      - name: Build project
+      - name: Build frontend
         run: npm run build
 
       - name: Prepare SSH
@@ -42,9 +42,44 @@ jobs:
           chmod 600 ~/.ssh/beget_deploy_key
           ssh-keyscan -p "${{ secrets.BEGET_PORT }}" "${{ secrets.BEGET_HOST }}" >> ~/.ssh/known_hosts
 
-      - name: Deploy dist to Beget
+      - name: Deploy Laravel app to Beget
         run: |
           rsync -az --delete \
             -e "ssh -i ~/.ssh/beget_deploy_key -p ${{ secrets.BEGET_PORT }}" \
-            public/build/ \
-            ${{ secrets.BEGET_USER }}@${{ secrets.BEGET_HOST }}:${{ secrets.BEGET_DEPLOY_PATH }}/build/
+            --exclude=".git" \
+            --exclude=".github" \
+            --exclude=".env" \
+            --exclude="node_modules" \
+            --exclude="public" \
+            --exclude="tests" \
+            --exclude="storage/logs/*" \
+            --exclude="storage/framework/cache/*" \
+            --exclude="storage/framework/sessions/*" \
+            --exclude="storage/framework/views/*" \
+            ./ \
+            ${{ secrets.BEGET_USER }}@${{ secrets.BEGET_HOST }}:${{ secrets.BEGET_APP_PATH }}/
+
+      - name: Deploy public directory to public_html
+        run: |
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/beget_deploy_key -p ${{ secrets.BEGET_PORT }}" \
+            public/ \
+            ${{ secrets.BEGET_USER }}@${{ secrets.BEGET_HOST }}:${{ secrets.BEGET_PUBLIC_PATH }}/
+
+      - name: Fix Laravel public index.php paths
+        run: |
+          ssh -i ~/.ssh/beget_deploy_key -p ${{ secrets.BEGET_PORT }} \
+            ${{ secrets.BEGET_USER }}@${{ secrets.BEGET_HOST }} \
+            "sed -i \"s#__DIR__.'/../vendor/autoload.php'#__DIR__.'/../app/vendor/autoload.php'#\" ${{ secrets.BEGET_PUBLIC_PATH }}/index.php && \
+             sed -i \"s#__DIR__.'/../bootstrap/app.php'#__DIR__.'/../app/bootstrap/app.php'#\" ${{ secrets.BEGET_PUBLIC_PATH }}/index.php"
+
+      - name: Run Laravel commands
+        run: |
+          ssh -i ~/.ssh/beget_deploy_key -p ${{ secrets.BEGET_PORT }} \
+            ${{ secrets.BEGET_USER }}@${{ secrets.BEGET_HOST }} \
+            "cd ${{ secrets.BEGET_APP_PATH }} && \
+             php artisan config:clear && \
+             php artisan route:clear && \
+             php artisan view:clear && \
+             php artisan cache:clear && \
+             php artisan config:cache"
