@@ -32,7 +32,7 @@ function createList() {
 </script>
 
 <template>
-    <Head title="Дома" />
+    <Head title="Home" />
 
     <main class="min-h-screen bg-stone-100 px-4 py-6 text-stone-900">
         <div class="mx-auto max-w-xl">
@@ -40,10 +40,6 @@ function createList() {
                 <div class="text-sm text-stone-500">
                     Добро пожаловать
                 </div>
-
-                <h1 class="mt-1 text-3xl font-bold">
-                    Дома
-                </h1>
 
                 <div class="mt-2 text-stone-600">
                     {{ user?.name ?? 'Привет' }}, здесь ваши списки.
