@@ -78,8 +78,8 @@ jobs:
           ssh -i ~/.ssh/beget_deploy_key -p ${{ secrets.BEGET_PORT }} \
             ${{ secrets.BEGET_USER }}@${{ secrets.BEGET_HOST }} \
             "cd ${{ secrets.BEGET_APP_PATH }} && \
-             php artisan config:clear && \
-             php artisan route:clear && \
-             php artisan view:clear && \
-             php artisan cache:clear && \
-             php artisan config:cache"
+             php8.3 artisan config:clear && \
+             php8.3 artisan route:clear && \
+             php8.3 artisan view:clear && \
+             php8.3 artisan cache:clear && \
+             php8.3 artisan config:cache"
