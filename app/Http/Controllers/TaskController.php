@@ -12,18 +12,27 @@ class TaskController extends Controller
     public function store(Request $request, FamilyList $list): RedirectResponse
     {
         $validated = $request->validate([
-            'title' => ['required', 'string', 'max:255'],
+            'title' => ['required', 'string', 'max:4000'],
         ]);
 
-        $maxSortOrder = $list->tasks()
+        $titles = collect(preg_split('/\R/u', $validated['title']))
+            ->map(fn ($title) => trim($title))
+            ->filter()
+            ->unique()
+            ->take(50)
+            ->values();
+
+        $maxSortOrder = (int) $list->tasks()
             ->where('is_done', false)
             ->max('sort_order');
 
-        $list->tasks()->create([
-            'title' => $validated['title'],
-            'sort_order' => ((int) $maxSortOrder) + 1,
-            'created_by' => $request->user()->id,
-        ]);
+        foreach ($titles as $index => $title) {
+            $list->tasks()->create([
+                'title' => mb_substr($title, 0, 255),
+                'sort_order' => $maxSortOrder + $index + 1,
+                'created_by' => $request->user()->id,
+            ]);
+        }
 
         return back();
     }
