@@ -566,3 +566,30 @@ input {
         animation-iteration-count: 1 !important;
     }
 }
+
+@layer components {
+    .home-install-card {
+        background:
+            linear-gradient(135deg, color-mix(in srgb, var(--home-surface) 92%, transparent), color-mix(in srgb, var(--home-primary-muted) 64%, white));
+        border: 1px solid color-mix(in srgb, var(--home-border) 82%, transparent);
+        box-shadow: var(--home-shadow-soft);
+    }
+
+    .home-install-icon {
+        background: color-mix(in srgb, var(--home-primary-soft) 84%, white);
+        border: 1px solid color-mix(in srgb, var(--home-border-strong) 30%, transparent);
+    }
+}
+
+@media (max-width: 640px) {
+    .home-task-composer {
+        position: fixed !important;
+        left: 0.75rem;
+        right: 0.75rem;
+        top: auto !important;
+        bottom: calc(5.8rem + env(safe-area-inset-bottom));
+        z-index: 35;
+        margin: 0 auto;
+        max-width: calc(100% - 1.5rem);
+    }
+}

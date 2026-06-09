@@ -18,7 +18,6 @@ const user = computed(() => page.props.auth?.user ?? null)
 
 const {
     isOnline,
-    recentlyRestored,
 } = useNetworkStatus()
 
 const {
@@ -29,6 +28,27 @@ const {
     removeOfflineTask,
     syncOfflineTasks,
 } = useOfflineTaskQueue(props.list.id)
+
+const updateAvailable = ref(false)
+
+function handlePwaUpdateAvailable() {
+    updateAvailable.value = true
+}
+
+function reloadApp() {
+    if (window.__pwaWaitingWorker) {
+        window.__pwaWaitingWorker.postMessage({ type: 'SKIP_WAITING' })
+        return
+    }
+
+    window.location.reload()
+}
+
+function vibrateLight() {
+    if ('vibrate' in navigator) {
+        navigator.vibrate(8)
+    }
+}
 
 const localActiveTasks = ref([])
 const localDoneTasks = ref([])
@@ -44,10 +64,12 @@ onMounted(() => {
     }
 
     window.addEventListener('online', handleOnline)
+    window.addEventListener('pwa-update-available', handlePwaUpdateAvailable)
 })
 
 onUnmounted(() => {
     window.removeEventListener('online', handleOnline)
+    window.removeEventListener('pwa-update-available', handlePwaUpdateAvailable)
 })
 
 watch(
@@ -214,7 +236,7 @@ const visibleDoneTasks = computed(() => {
         return doneTasks.value
     }
 
-    return doneTasks.value.slice(0, 3)
+    return []
 })
 
 const hiddenDoneTasksCount = computed(() => {
@@ -256,6 +278,7 @@ function createTask() {
 
     if (!isOnline.value) {
         addOfflineTask(title, user.value)
+        vibrateLight()
 
         form.reset()
 
@@ -269,6 +292,7 @@ function createTask() {
     form.post(route('tasks.store', props.list.id), {
         preserveScroll: true,
         onSuccess: () => {
+            vibrateLight()
             form.reset()
 
             nextTick(() => {
@@ -288,6 +312,7 @@ function toggleTask(task) {
     }
 
     openedTaskMenuId.value = null
+    vibrateLight()
 
     router.post(route('tasks.toggle', task.id), {}, {
         preserveScroll: true,
@@ -319,6 +344,8 @@ function deleteTask(task) {
         ...pendingDeleteTasks.value,
         task,
     ]
+
+    vibrateLight()
 
     const timer = window.setTimeout(() => {
         router.delete(route('tasks.destroy', task.id), {
@@ -388,6 +415,7 @@ function startLongPress(task) {
 
     longPressTimer.value = window.setTimeout(() => {
         openedTaskMenuId.value = task.id
+        vibrateLight()
     }, 500)
 }
 
@@ -575,6 +603,21 @@ function saveTasksOrder() {
                     </button>
                 </form>
             </section>
+
+            <Transition
+                enter-active-class="transition duration-200 ease-out"
+                enter-from-class="opacity-0"
+                enter-to-class="opacity-100"
+                leave-active-class="transition duration-150 ease-in"
+                leave-from-class="opacity-100"
+                leave-to-class="opacity-0"
+            >
+                <div
+                    v-if="showTaskComposer"
+                    class="fixed inset-0 z-20 hidden bg-black/5 backdrop-blur-[1px] max-sm:block"
+                    @click="closeTaskComposer"
+                />
+            </Transition>
 
             <Transition
                 enter-active-class="transition duration-200 ease-out"
@@ -833,7 +876,7 @@ function saveTasksOrder() {
                                     :class="task._syncing ? 'bg-amber-500' : 'bg-[var(--home-focus)]'"
                                 />
 
-                                                            <span class="home-muted">
+                                <span class="home-muted">
                                     {{ task._syncing ? 'Отправляется…' : 'Сохранено на устройстве' }}
                                 </span>
                             </div>
@@ -970,7 +1013,7 @@ function saveTasksOrder() {
                     </div>
                 </TransitionGroup>
                 <button
-                    v-if="hiddenDoneTasksCount > 0"
+                    v-if="showDoneTasks && hiddenDoneTasksCount > 0"
                     type="button"
                     class="home-soft-button mt-3 min-h-12 w-full rounded-[1.5rem] px-4 py-3 text-sm font-semibold"
                     @click="showDoneTasks = true"
@@ -1106,6 +1149,39 @@ function saveTasksOrder() {
                         @click="undoDeleteTask(pendingDeleteTasks[pendingDeleteTasks.length - 1])"
                     >
                         Отменить
+                    </button>
+                </div>
+            </div>
+        </Transition>
+
+        <Transition
+            enter-active-class="transition duration-300 ease-out"
+            enter-from-class="translate-y-4 opacity-0"
+            enter-to-class="translate-y-0 opacity-100"
+            leave-active-class="transition duration-200 ease-in"
+            leave-from-class="translate-y-0 opacity-100"
+            leave-to-class="translate-y-4 opacity-0"
+        >
+            <div
+                v-if="updateAvailable"
+                class="fixed inset-x-0 bottom-24 z-50 px-3 sm:bottom-6"
+            >
+                <div class="home-toast mx-auto flex max-w-xl items-center justify-between gap-3 rounded-[1.5rem] px-4 py-3">
+                    <div class="min-w-0">
+                        <div class="text-sm font-semibold">
+                            Доступна новая версия
+                        </div>
+                        <div class="truncate text-xs text-white/70">
+                            Обновите приложение, чтобы применить изменения.
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        class="shrink-0 rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white transition active:scale-95"
+                        @click="reloadApp"
+                    >
+                        Обновить
                     </button>
                 </div>
             </div>

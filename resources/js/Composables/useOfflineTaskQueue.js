@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { router } from '@inertiajs/vue3'
 
 const EVENT_NAME = 'offline-tasks-updated'
@@ -167,8 +167,15 @@ export function useOfflineTaskQueue(listId) {
         offlineTasks.value = event.detail.tasks
     }
 
-    window.addEventListener('storage', handleStorageEvent)
-    window.addEventListener(EVENT_NAME, handleCustomEvent)
+    onMounted(() => {
+        window.addEventListener('storage', handleStorageEvent)
+        window.addEventListener(EVENT_NAME, handleCustomEvent)
+    })
+
+    onUnmounted(() => {
+        window.removeEventListener('storage', handleStorageEvent)
+        window.removeEventListener(EVENT_NAME, handleCustomEvent)
+    })
 
     return {
         offlineTasks,

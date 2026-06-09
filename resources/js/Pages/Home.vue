@@ -1,6 +1,6 @@
 <script setup>
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3'
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import draggable from 'vuedraggable'
 import NetworkStatus from '@/Components/NetworkStatus.vue'
 import { useNetworkStatus } from '@/Composables/useNetworkStatus'
@@ -57,6 +57,77 @@ const homeSubtitle = computed(() => {
 })
 
 const showCreateForm = ref(false)
+const updateAvailable = ref(false)
+const canInstallApp = ref(false)
+const installPrompt = ref(null)
+const isStandaloneApp = ref(false)
+
+function detectStandaloneApp() {
+    return window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true
+}
+
+function handlePwaUpdateAvailable() {
+    updateAvailable.value = true
+}
+
+function handleInstallAvailable(event) {
+    if (detectStandaloneApp()) {
+        return
+    }
+
+    installPrompt.value = event.detail?.prompt ?? window.__pwaInstallPrompt ?? null
+    canInstallApp.value = Boolean(installPrompt.value)
+}
+
+function handleAppInstalled() {
+    installPrompt.value = null
+    canInstallApp.value = false
+    isStandaloneApp.value = true
+}
+
+async function installApp() {
+    const prompt = installPrompt.value ?? window.__pwaInstallPrompt
+
+    if (!prompt) {
+        return
+    }
+
+    prompt.prompt()
+
+    const choice = await prompt.userChoice
+
+    if (choice.outcome === 'accepted') {
+        handleAppInstalled()
+    }
+}
+
+function reloadApp() {
+    if (window.__pwaWaitingWorker) {
+        window.__pwaWaitingWorker.postMessage({ type: 'SKIP_WAITING' })
+        return
+    }
+
+    window.location.reload()
+}
+
+onMounted(() => {
+    isStandaloneApp.value = detectStandaloneApp()
+
+    if (window.__pwaInstallPrompt && !isStandaloneApp.value) {
+        installPrompt.value = window.__pwaInstallPrompt
+        canInstallApp.value = true
+    }
+
+    window.addEventListener('pwa-update-available', handlePwaUpdateAvailable)
+    window.addEventListener('pwa-install-available', handleInstallAvailable)
+    window.addEventListener('pwa-app-installed', handleAppInstalled)
+})
+
+onUnmounted(() => {
+    window.removeEventListener('pwa-update-available', handlePwaUpdateAvailable)
+    window.removeEventListener('pwa-install-available', handleInstallAvailable)
+    window.removeEventListener('pwa-app-installed', handleAppInstalled)
+})
 
 const form = useForm({
     title: '',
@@ -245,6 +316,43 @@ function saveListsOrder() {
                 </div>
             </header>
 
+            <Transition
+                enter-active-class="transition duration-200 ease-out"
+                enter-from-class="-translate-y-2 opacity-0"
+                enter-to-class="translate-y-0 opacity-100"
+                leave-active-class="transition duration-150 ease-in"
+                leave-from-class="translate-y-0 opacity-100"
+                leave-to-class="-translate-y-2 opacity-0"
+            >
+                <section
+                    v-if="canInstallApp && !isStandaloneApp"
+                    class="home-install-card mb-4 rounded-[1.75rem] p-4"
+                >
+                    <div class="flex items-center gap-3">
+                        <div class="home-install-icon flex h-12 w-12 shrink-0 items-center justify-center rounded-[1.2rem] text-2xl">
+                            📲
+                        </div>
+
+                        <div class="min-w-0 flex-1">
+                            <div class="home-title text-sm font-bold">
+                                Добавить на экран
+                            </div>
+                            <div class="home-muted mt-1 text-xs leading-relaxed">
+                                «Наш дом» откроется как обычное приложение.
+                            </div>
+                        </div>
+
+                        <button
+                            type="button"
+                            class="home-primary-button min-h-11 shrink-0 rounded-2xl px-4 text-sm font-bold"
+                            @click="installApp"
+                        >
+                            Установить
+                        </button>
+                    </div>
+                </section>
+            </Transition>
+
             <section>
                 <draggable
                     v-model="localLists"
@@ -419,5 +527,37 @@ function saveListsOrder() {
                 </button>
             </section>
         </div>
+        <Transition
+            enter-active-class="transition duration-300 ease-out"
+            enter-from-class="translate-y-4 opacity-0"
+            enter-to-class="translate-y-0 opacity-100"
+            leave-active-class="transition duration-200 ease-in"
+            leave-from-class="translate-y-0 opacity-100"
+            leave-to-class="translate-y-4 opacity-0"
+        >
+            <div
+                v-if="updateAvailable"
+                class="fixed inset-x-0 bottom-24 z-50 px-3 sm:bottom-6"
+            >
+                <div class="home-toast mx-auto flex max-w-xl items-center justify-between gap-3 rounded-[1.5rem] px-4 py-3">
+                    <div class="min-w-0">
+                        <div class="text-sm font-semibold">
+                            Доступна новая версия
+                        </div>
+                        <div class="truncate text-xs text-white/70">
+                            Обновите приложение, чтобы применить изменения.
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        class="shrink-0 rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white transition active:scale-95"
+                        @click="reloadApp"
+                    >
+                        Обновить
+                    </button>
+                </div>
+            </div>
+        </Transition>
     </main>
 </template>
