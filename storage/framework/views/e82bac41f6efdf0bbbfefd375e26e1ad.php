@@ -10,6 +10,18 @@
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
 
+        <meta name="theme-color" content="#1c1917">
+        <meta name="application-name" content="Наш дом">
+
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-title" content="Наш дом">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="default">
+
+        <link rel="manifest" href="/manifest.webmanifest">
+        <link rel="icon" href="/icons/icon-192.png" sizes="192x192">
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+
         <!-- Scripts -->
         <?php echo app('Tighten\Ziggy\BladeRouteGenerator')->generate(); ?>
         <?php echo app('Illuminate\Foundation\Vite')(['resources/js/app.js', "resources/js/Pages/{$page['component']}.vue"]); ?>

@@ -34,8 +34,8 @@ function createList() {
 <template>
     <Head title="Home" />
 
-    <main class="min-h-screen bg-stone-100 px-4 py-6 text-stone-900">
-        <div class="mx-auto max-w-xl">
+    <main class="min-h-screen bg-stone-100 px-3 py-4 text-stone-900 sm:px-4 sm:py-6">
+        <div class="mx-auto max-w-xl pb-24">
             <header class="mb-8">
                 <div class="text-sm text-stone-500">
                     Добро пожаловать
@@ -51,12 +51,12 @@ function createList() {
                     v-for="list in lists"
                     :key="list.id"
                     :href="route('lists.show', list.id)"
-                    class="block rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5 transition active:scale-[0.99]"
+                    class="block rounded-[2rem] bg-white p-4 shadow-sm ring-1 ring-black/5 transition active:scale-[0.99] sm:p-5"
                 >
-                    <div class="flex items-center justify-between gap-4">
+                    <div class="flex items-center justify-between gap-3">
                         <div class="min-w-0">
                             <div class="flex items-center gap-3">
-                                <div class="text-2xl">
+                                <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-stone-50 text-2xl">
                                     {{ list.emoji }}
                                 </div>
 
@@ -71,7 +71,7 @@ function createList() {
                             </div>
                         </div>
 
-                        <div class="rounded-full bg-stone-100 px-3 py-1 text-sm font-medium text-stone-600">
+                        <div class="flex h-10 min-w-10 shrink-0 items-center justify-center rounded-full bg-stone-100 px-3 text-sm font-semibold text-stone-600">
                             {{ list.active_tasks_count }}
                         </div>
                     </div>
@@ -91,7 +91,7 @@ function createList() {
                 </div>
             </section>
 
-            <section class="mt-5">
+            <section class="sticky bottom-3 z-10 mt-5">
                 <form
                     v-if="showCreateForm"
                     class="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5"
@@ -141,7 +141,7 @@ function createList() {
                 <button
                     v-else
                     type="button"
-                    class="w-full rounded-3xl bg-stone-900 px-5 py-4 font-semibold text-white shadow-sm"
+                    class="w-full rounded-[2rem] bg-stone-900 px-5 py-4 font-semibold text-white shadow-lg shadow-stone-300/60 active:scale-[0.99]"
                     @click="showCreateForm = true"
                 >
                     + Новый список

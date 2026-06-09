@@ -127,9 +127,9 @@ function userInitials(name) {
 <template>
     <Head :title="list.title" />
 
-    <main class="min-h-screen bg-stone-100 px-4 py-6 text-stone-900">
-        <div class="mx-auto max-w-xl">
-            <header class="mb-6">
+    <main class="min-h-screen bg-stone-100 px-3 py-4 text-stone-900 sm:px-4 sm:py-6">
+        <div class="mx-auto max-w-xl pb-24">
+            <header class="mb-5">
                 <Link
                     :href="route('home')"
                     class="text-sm font-medium text-stone-500"
@@ -137,13 +137,13 @@ function userInitials(name) {
                     ← Все списки
                 </Link>
 
-                <div class="mt-5 flex items-center gap-3">
-                    <div class="text-4xl">
+                <div class="mt-4 flex items-center gap-3">
+                    <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-3xl bg-white text-3xl shadow-sm ring-1 ring-black/5">
                         {{ list.emoji }}
                     </div>
 
                     <div class="min-w-0 flex-1">
-                        <h1 class="truncate text-3xl font-bold">
+                        <h1 class="truncate text-2xl font-bold sm:text-3xl">
                             {{ list.title }}
                         </h1>
 
@@ -217,20 +217,20 @@ function userInitials(name) {
             </section>
 
             <form
-                class="mb-5 rounded-3xl bg-white p-3 shadow-sm ring-1 ring-black/5"
+                class="sticky top-2 z-10 mb-5 rounded-[2rem] bg-white/95 p-2 shadow-sm ring-1 ring-black/5 backdrop-blur"
                 @submit.prevent="createTask"
             >
                 <div class="flex gap-2">
                     <input
                         v-model="form.title"
-                        class="h-12 min-w-0 flex-1 rounded-2xl border border-transparent bg-stone-50 px-4 outline-none focus:border-stone-300"
+                        class="h-[52px] min-w-0 flex-1 rounded-[1.4rem] border border-transparent bg-stone-50 px-4 text-base outline-none focus:border-stone-300"
                         placeholder="Добавить задачу..."
                         autocomplete="off"
                     >
 
                     <button
                         type="submit"
-                        class="h-12 rounded-2xl bg-stone-900 px-5 font-semibold text-white disabled:opacity-50"
+                        class="h-[52px] w-[52px] shrink-0 rounded-[1.4rem] bg-stone-900 text-xl font-semibold text-white disabled:opacity-50"
                         :disabled="form.processing || !form.title.trim()"
                     >
                         +
@@ -251,7 +251,7 @@ function userInitials(name) {
             >
                 <button
                     type="button"
-                    class="w-full rounded-3xl bg-white px-5 py-4 text-sm font-semibold text-stone-700 shadow-sm ring-1 ring-black/5 transition active:scale-[0.99]"
+                    class="w-full rounded-[1.75rem] bg-white px-5 py-4 text-base font-semibold text-stone-700 shadow-sm ring-1 ring-black/5 transition active:scale-[0.99]"
                     @click="repeatDoneTasks"
                 >
                     ↺ Повторить выполненные
@@ -275,17 +275,17 @@ function userInitials(name) {
                 <div
                     v-for="task in activeTasks"
                     :key="task.id"
-                    class="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-black/5"
+                    class="rounded-[1.75rem] bg-white p-3 shadow-sm ring-1 ring-black/5 sm:p-4"
                 >
-                    <div class="flex items-center gap-3">
+                    <div class="flex min-h-[48px] items-center gap-3">
                         <button
                             type="button"
-                            class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-stone-300"
+                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-stone-300 active:scale-95"
                             @click="toggleTask(task)"
                         />
 
                         <div
-                            class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
                             :style="{ backgroundColor: task.creator?.avatar_color || '#57534e' }"
                             :title="task.creator?.name"
                         >
@@ -296,7 +296,7 @@ function userInitials(name) {
                             v-if="editingTaskId === task.id"
                             ref="editingInput"
                             v-model="editingTitle"
-                            class="min-w-0 flex-1 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-lg font-medium outline-none focus:border-stone-400"
+                            class="min-w-0 flex-1 rounded-2xl border border-stone-200 bg-stone-50 px-3 py-2 text-base font-semibold outline-none focus:border-stone-400 sm:text-lg"
                             @keydown.enter.prevent="saveEditTask(task)"
                             @keydown.esc.prevent="cancelEditTask"
                             @blur="saveEditTask(task)"
@@ -305,7 +305,7 @@ function userInitials(name) {
                         <button
                             v-else
                             type="button"
-                            class="min-w-0 flex-1 truncate text-left text-lg font-medium"
+                            class="min-w-0 flex-1 text-left text-base font-semibold leading-snug line-clamp-2 sm:text-lg"
                             @click="startEditTask(task)"
                         >
                             {{ task.title }}
@@ -313,8 +313,9 @@ function userInitials(name) {
 
                         <button
                             type="button"
-                            class="rounded-full px-2 text-stone-300"
+                            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xl text-stone-300 active:bg-stone-100"
                             @click="deleteTask(task)"
+                            aria-label="Удалить задачу"
                         >
                             ×
                         </button>
@@ -324,9 +325,9 @@ function userInitials(name) {
 
             <section
                 v-if="doneTasks.length > 0"
-                class="mt-7"
+                class="mt-8 pb-6"
             >
-                <div class="mb-3 px-1 text-sm font-semibold uppercase tracking-wide text-stone-400">
+                <div class="mb-3 px-2 text-xs font-bold uppercase tracking-wide text-stone-400">
                     Выполнено
                 </div>
 
@@ -334,19 +335,19 @@ function userInitials(name) {
                     <div
                         v-for="task in doneTasks"
                         :key="task.id"
-                        class="rounded-3xl bg-white/70 p-4 text-stone-500 shadow-sm ring-1 ring-black/5"
+                        class="rounded-[1.75rem] bg-white/70 p-3 text-stone-500 shadow-sm ring-1 ring-black/5 sm:p-4"
                     >
                         <div class="flex items-center gap-3">
                             <button
                                 type="button"
-                                class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-stone-900 text-sm text-white"
+                                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-stone-900 text-sm text-white active:scale-95"
                                 @click="toggleTask(task)"
                             >
                                 ✓
                             </button>
 
                             <div
-                                class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white opacity-70"
+                                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white opacity-70"
                                 :style="{ backgroundColor: task.creator?.avatar_color || '#57534e' }"
                                 :title="task.creator?.name"
                             >
@@ -357,7 +358,7 @@ function userInitials(name) {
                                 v-if="editingTaskId === task.id"
                                 ref="editingInput"
                                 v-model="editingTitle"
-                                class="min-w-0 flex-1 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-lg font-medium text-stone-500 outline-none focus:border-stone-400"
+                                class="min-w-0 flex-1 rounded-2xl border border-stone-200 bg-stone-50 px-3 py-2 text-base font-medium text-stone-500 outline-none focus:border-stone-400 sm:text-lg"
                                 @keydown.enter.prevent="saveEditTask(task)"
                                 @keydown.esc.prevent="cancelEditTask"
                                 @blur="saveEditTask(task)"
@@ -366,7 +367,7 @@ function userInitials(name) {
                             <button
                                 v-else
                                 type="button"
-                                class="min-w-0 flex-1 truncate text-left text-lg font-medium line-through decoration-stone-400"
+                                class="min-w-0 flex-1 text-left text-base font-medium leading-snug line-clamp-2 line-through decoration-stone-400 sm:text-lg"
                                 @click="startEditTask(task)"
                             >
                                 {{ task.title }}
@@ -374,8 +375,9 @@ function userInitials(name) {
 
                             <button
                                 type="button"
-                                class="rounded-full px-2 text-stone-300"
+                                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xl text-stone-300 active:bg-stone-100"
                                 @click="deleteTask(task)"
+                                aria-label="Удалить задачу"
                             >
                                 ×
                             </button>
