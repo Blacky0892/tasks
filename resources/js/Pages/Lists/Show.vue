@@ -14,6 +14,18 @@ const form = useForm({
     title: '',
 })
 
+const addTaskInput = ref(null)
+
+function focusAddTaskInput() {
+    nextTick(() => {
+        addTaskInput.value?.focus()
+        addTaskInput.value?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+        })
+    })
+}
+
 const showListSettings = ref(false)
 
 const listForm = useForm({
@@ -122,6 +134,23 @@ function userInitials(name) {
         .slice(0, 2)
         .toUpperCase()
 }
+
+function openListSettings() {
+    showListSettings.value = true
+
+    nextTick(() => {
+        document
+            .getElementById('list-settings')
+            ?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+            })
+    })
+}
+
+function handleBottomAddClick() {
+    focusAddTaskInput()
+}
 </script>
 
 <template>
@@ -154,7 +183,7 @@ function userInitials(name) {
 
                     <button
                         type="button"
-                        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-xl text-stone-500 shadow-sm ring-1 ring-black/5"
+                        class="hidden h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-xl text-stone-500 shadow-sm ring-1 ring-black/5 sm:flex"
                         @click="showListSettings = !showListSettings"
                     >
                         ⋯
@@ -164,6 +193,7 @@ function userInitials(name) {
 
             <section
                 v-if="showListSettings"
+                id="list-settings"
                 class="mb-5 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5"
             >
                 <form @submit.prevent="updateList">
@@ -222,6 +252,7 @@ function userInitials(name) {
             >
                 <div class="flex gap-2">
                     <input
+                        ref="addTaskInput"
                         v-model="form.title"
                         class="h-[52px] min-w-0 flex-1 rounded-[1.4rem] border border-transparent bg-stone-50 px-4 text-base outline-none focus:border-stone-300"
                         placeholder="Добавить задачу..."
@@ -247,7 +278,7 @@ function userInitials(name) {
 
             <div
                 v-if="doneTasks.length > 0"
-                class="mb-5"
+                class="mb-5 hidden sm:block"
             >
                 <button
                     type="button"
@@ -386,5 +417,36 @@ function userInitials(name) {
                 </div>
             </section>
         </div>
+        <nav class="fixed inset-x-0 bottom-0 z-30 border-t border-stone-200/80 bg-stone-100/90 px-3 pb-[max(env(safe-area-inset-bottom),12px)] pt-3 backdrop-blur sm:hidden">
+            <div class="mx-auto grid max-w-xl grid-cols-3 gap-2">
+                <button
+                    type="button"
+                    class="flex min-h-[54px] flex-col items-center justify-center rounded-2xl bg-stone-900 px-2 text-sm font-semibold text-white shadow-lg shadow-stone-300/70 active:scale-[0.98]"
+                    @click="handleBottomAddClick"
+                >
+                    <span class="text-lg leading-none">+</span>
+                    <span class="mt-1">Добавить</span>
+                </button>
+
+                <button
+                    type="button"
+                    class="flex min-h-[54px] flex-col items-center justify-center rounded-2xl bg-white px-2 text-sm font-semibold text-stone-700 shadow-sm ring-1 ring-black/5 active:scale-[0.98] disabled:opacity-40"
+                    :disabled="doneTasks.length === 0"
+                    @click="repeatDoneTasks"
+                >
+                    <span class="text-lg leading-none">↺</span>
+                    <span class="mt-1">Повторить</span>
+                </button>
+
+                <button
+                    type="button"
+                    class="flex min-h-[54px] flex-col items-center justify-center rounded-2xl bg-white px-2 text-sm font-semibold text-stone-700 shadow-sm ring-1 ring-black/5 active:scale-[0.98]"
+                    @click="openListSettings"
+                >
+                    <span class="text-lg leading-none">⋯</span>
+                    <span class="mt-1">Настройки</span>
+                </button>
+            </div>
+        </nav>
     </main>
 </template>
