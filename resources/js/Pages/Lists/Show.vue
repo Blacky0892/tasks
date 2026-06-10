@@ -679,8 +679,9 @@ syncLocalTasks(props.list.tasks)
                     class="space-y-3"
                     :class="taskReorderMode ? 'rounded-[2rem] ring-2 ring-[var(--home-focus)] ring-offset-2 ring-offset-[var(--home-bg)]' : ''"
                     :disabled="!taskReorderMode"
-                    ghost-class="opacity-40"
-                    chosen-class="scale-[0.99]"
+                    ghost-class="home-drag-ghost"
+                    chosen-class="home-drag-chosen"
+                    drag-class="home-drag-active"
                     animation="180"
                     @end="saveTasksOrder"
                 >
@@ -729,19 +730,14 @@ syncLocalTasks(props.list.tasks)
             />
         </div>
 
-        <nav
-            class="home-bottom-nav fixed inset-x-0 bottom-0 z-30 px-3 pb-[max(env(safe-area-inset-bottom),12px)] pt-2 sm:hidden">
-            <div class="mx-auto max-w-xl flex items-center justify-center gap-2">
-                <button
-                    type="button"
-                    class="home-bottom-add-button min-h-[54px] items-center justify-center gap-2 rounded-3xl px-4 text-sm font-bold leading-none w-[54px]"
-                    @click="handleBottomAddClick"
-                    aria-label="Добавить задачу"
-                >
-                    <span class="text-base leading-none text-xl">＋</span>
-                </button>
-            </div>
-        </nav>
+        <button
+            type="button"
+            class="home-bottom-add-button fixed bottom-[max(env(safe-area-inset-bottom),1rem)] right-4 z-30 flex h-[58px] w-[58px] items-center justify-center rounded-full text-2xl font-bold leading-none"
+            @click="handleBottomAddClick"
+            aria-label="Добавить задачу"
+        >
+            ＋
+        </button>
 
         <Transition
             enter-active-class="transition duration-200 ease-out"

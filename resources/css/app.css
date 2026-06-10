@@ -478,6 +478,30 @@ input {
         color: color-mix(in srgb, var(--home-text-subtle) 72%, transparent);
     }
 
+    .home-drag-ghost {
+        opacity: 0.22;
+    }
+
+    .home-drag-chosen,
+    .home-drag-active {
+        opacity: 1 !important;
+        transform: scale(1.03) rotate(-0.75deg);
+        filter: saturate(1.08);
+        z-index: 40;
+    }
+
+    .home-drag-chosen .home-card,
+    .home-drag-chosen .home-soft-card,
+    .home-drag-chosen.home-card,
+    .home-drag-chosen.home-soft-card,
+    .home-drag-active .home-card,
+    .home-drag-active .home-soft-card,
+    .home-drag-active.home-card,
+    .home-drag-active.home-soft-card {
+        border-color: var(--home-focus);
+        box-shadow: 0 22px 54px rgb(40 51 38 / 0.22), 0 0 0 4px rgb(175 195 158 / 0.24);
+    }
+
     .home-done-section-toggle {
         background: color-mix(in srgb, var(--home-surface-soft) 74%, white);
         color: var(--home-text-soft);

@@ -461,8 +461,9 @@ function saveListsOrder() {
                     class="space-y-3"
                     :class="listReorderMode ? 'rounded-[2rem] ring-2 ring-[var(--home-focus)] ring-offset-2 ring-offset-[var(--home-bg)]' : ''"
                     :disabled="!listReorderMode"
-                    ghost-class="opacity-40"
-                    chosen-class="scale-[0.99]"
+                    ghost-class="home-drag-ghost"
+                    chosen-class="home-drag-chosen"
+                    drag-class="home-drag-active"
                     animation="180"
                     @end="saveListsOrder"
                 >
@@ -576,9 +577,11 @@ function saveListsOrder() {
                 </div>
             </section>
 
-            <section class="home-create-dock sticky z-20 mt-5">
+            <section
+                v-if="showCreateForm"
+                class="home-create-dock sticky z-20 mt-5"
+            >
                 <form
-                    v-if="showCreateForm"
                     class="home-card rounded-[2rem] p-4 shadow-lg sm:p-5"
                     @submit.prevent="createList"
                 >
@@ -653,17 +656,19 @@ function saveListsOrder() {
                         </button>
                     </div>
                 </form>
-
-                <button
-                    v-else
-                    type="button"
-                    class="home-primary-button min-h-14 w-full rounded-[2rem] px-5 py-4 text-[17px] font-semibold active:scale-[0.99]"
-                    @click="openCreateForm"
-                >
-                    + Новый список
-                </button>
             </section>
         </div>
+
+        <button
+            v-if="!showCreateForm"
+            type="button"
+            class="home-bottom-add-button fixed bottom-[max(env(safe-area-inset-bottom),1rem)] right-4 z-30 flex h-[58px] w-[58px] items-center justify-center rounded-full text-2xl font-bold leading-none"
+            @click="openCreateForm"
+            aria-label="Добавить список"
+        >
+            ＋
+        </button>
+
         <Transition
             enter-active-class="transition duration-300 ease-out"
             enter-from-class="translate-y-4 opacity-0"
