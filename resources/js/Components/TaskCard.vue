@@ -2,6 +2,8 @@
 import { computed } from 'vue'
 import TaskAvatar from '@/Components/TaskAvatar.vue'
 
+// Описывает задачу, вариант карточки и внешние состояния:
+// редактирование, открытое меню и режим сортировки.
 const props = defineProps({
     task: {
         type: Object,
@@ -29,6 +31,7 @@ const props = defineProps({
     },
 })
 
+// Объявляет события карточки, через которые родитель управляет задачей.
 const emit = defineEmits([
     'toggle',
     'edit',
@@ -41,6 +44,8 @@ const emit = defineEmits([
     'update:editingTitle',
 ])
 
+// Возвращает базовый класс карточки в зависимости от того,
+// активная задача отображается или уже выполненная.
 const cardClass = computed(() => {
     if (props.variant === 'done') {
         return 'home-soft-card opacity-80'
@@ -49,6 +54,8 @@ const cardClass = computed(() => {
     return 'home-card'
 })
 
+// Возвращает класс заголовка задачи:
+// обычный для активных задач и зачёркнутый для выполненных.
 const titleClass = computed(() => {
     if (props.variant === 'done') {
         return 'home-muted font-medium line-through decoration-[var(--home-focus)]'
@@ -57,6 +64,7 @@ const titleClass = computed(() => {
     return 'home-title font-semibold'
 })
 
+// Возвращает класс кнопки выполнения с учётом состояния задачи.
 const checkButtonClass = computed(() => {
     if (props.variant === 'done') {
         return 'home-done-check-button text-sm font-bold'
@@ -65,16 +73,22 @@ const checkButtonClass = computed(() => {
     return 'home-check-button home-check-button-mobile'
 })
 
+// Формирует aria-label для кнопки выполнения,
+// чтобы действие было понятно скринридерам.
 const checkLabel = computed(() => {
     return props.variant === 'done'
         ? 'Вернуть в активные'
         : 'Отметить выполненной'
 })
 
+// Определяет имя пользователя, который выполнил задачу.
+// Если имени нет, использует email, иначе возвращает null.
 const completedByName = computed(() => {
     return props.task.completed_by?.name ?? props.task.completed_by?.email ?? null
 })
 
+// Формирует подпись о том, кто отметил задачу выполненной.
+// Для активных задач и задач без автора выполнения подпись не показывается.
 const completedHint = computed(() => {
     if (props.variant !== 'done' || !completedByName.value) {
         return ''

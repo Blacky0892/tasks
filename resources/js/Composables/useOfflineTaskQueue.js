@@ -3,10 +3,12 @@ import { router } from '@inertiajs/vue3'
 
 const EVENT_NAME = 'offline-tasks-updated'
 
+// Формирует уникальный ключ localStorage для офлайн-задач конкретного списка.
 function storageKey(listId) {
     return `offline-tasks:list:${listId}`
 }
 
+// Безопасно читает офлайн-задачи из localStorage и возвращает пустой массив при ошибке парсинга.
 function readTasks(listId) {
     try {
         return JSON.parse(localStorage.getItem(storageKey(listId)) || '[]')
@@ -15,6 +17,7 @@ function readTasks(listId) {
     }
 }
 
+// Сохраняет офлайн-задачи в localStorage и уведомляет остальные части интерфейса об изменениях.
 function writeTasks(listId, tasks) {
     localStorage.setItem(storageKey(listId), JSON.stringify(tasks))
 
@@ -26,6 +29,7 @@ function writeTasks(listId, tasks) {
     }))
 }
 
+// Создаёт временный id для задачи, добавленной без сети, до получения настоящего id с сервера.
 function makeTempId() {
     if (window.crypto?.randomUUID) {
         return `offline-${window.crypto.randomUUID()}`
@@ -34,15 +38,18 @@ function makeTempId() {
     return `offline-${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
+// Управляет очередью офлайн-задач: хранением, отображением и последующей синхронизацией с сервером.
 export function useOfflineTaskQueue(listId) {
     const offlineTasks = ref(readTasks(listId))
     const isSyncingOfflineTasks = ref(false)
     const syncError = ref(false)
 
+    // Перечитывает офлайн-задачи из localStorage и обновляет реактивный список.
     function refreshOfflineTasks() {
         offlineTasks.value = readTasks(listId)
     }
 
+    // Добавляет новую задачу в локальную офлайн-очередь и сразу возвращает её для отображения в интерфейсе.
     function addOfflineTask(title, user = null) {
         const task = {
             id: makeTempId(),
@@ -71,6 +78,7 @@ export function useOfflineTaskQueue(listId) {
         return task
     }
 
+    // Удаляет задачу из офлайн-очереди после успешной синхронизации или ручного удаления.
     function removeOfflineTask(taskId) {
         const tasks = readTasks(listId).filter(task => task.id !== taskId)
 
@@ -78,6 +86,7 @@ export function useOfflineTaskQueue(listId) {
         offlineTasks.value = tasks
     }
 
+    // Обновляет отдельную офлайн-задачу, например чтобы отметить её как синхронизирующуюся.
     function updateOfflineTask(taskId, payload) {
         const tasks = readTasks(listId).map(task => {
             if (task.id !== taskId) {
@@ -94,6 +103,7 @@ export function useOfflineTaskQueue(listId) {
         offlineTasks.value = tasks
     }
 
+    // Запускает синхронизацию очереди, если есть задачи, сеть доступна и синхронизация ещё не идёт.
     function syncOfflineTasks() {
         const tasks = readTasks(listId)
 
@@ -107,6 +117,7 @@ export function useOfflineTaskQueue(listId) {
         syncNextTask()
     }
 
+    // Последовательно отправляет задачи на сервер по одной, чтобы сохранить порядок и корректно обработать ошибки.
     function syncNextTask() {
         const [task] = readTasks(listId)
 
@@ -151,6 +162,7 @@ export function useOfflineTaskQueue(listId) {
         })
     }
 
+    // Обрабатывает изменения localStorage из других вкладок и обновляет локальный список задач.
     function handleStorageEvent(event) {
         if (event.key !== storageKey(listId)) {
             return
@@ -159,6 +171,7 @@ export function useOfflineTaskQueue(listId) {
         refreshOfflineTasks()
     }
 
+    // Обрабатывает внутреннее событие текущей вкладки, потому что обычный storage event в ней не срабатывает.
     function handleCustomEvent(event) {
         if (event.detail?.listId !== listId) {
             return
@@ -167,11 +180,13 @@ export function useOfflineTaskQueue(listId) {
         offlineTasks.value = event.detail.tasks
     }
 
+    // При монтировании подписывается на изменения офлайн-очереди в текущей и соседних вкладках.
     onMounted(() => {
         window.addEventListener('storage', handleStorageEvent)
         window.addEventListener(EVENT_NAME, handleCustomEvent)
     })
 
+    // При размонтировании удаляет подписки, чтобы избежать утечек и повторных обработчиков.
     onUnmounted(() => {
         window.removeEventListener('storage', handleStorageEvent)
         window.removeEventListener(EVENT_NAME, handleCustomEvent)

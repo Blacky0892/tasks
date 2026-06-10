@@ -7,8 +7,20 @@ use App\Models\Task;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
+/**
+ * Контроллер для управления задачами внутри семейных списков.
+ *
+ * Отвечает за создание, выполнение, редактирование, удаление
+ * и ручную сортировку активных задач.
+ */
 class TaskController extends Controller
 {
+    /**
+     * Создаёт одну или несколько задач в выбранном списке.
+     *
+     * Принимает текст, разбивает его на строки, удаляет пустые и повторяющиеся значения,
+     * ограничивает импорт до 50 задач и добавляет их в конец активного списка.
+     */
     public function store(Request $request, FamilyList $list): RedirectResponse
     {
         $validated = $request->validate([
@@ -37,6 +49,12 @@ class TaskController extends Controller
         return back();
     }
 
+    /**
+     * Переключает состояние задачи между активной и выполненной.
+     *
+     * Если задача уже выполнена, сбрасывает данные выполнения.
+     * Если задача активна, отмечает её выполненной текущим пользователем.
+     */
     public function toggle(Request $request, Task $task): RedirectResponse
     {
         if ($task->is_done) {
@@ -58,6 +76,11 @@ class TaskController extends Controller
         return back();
     }
 
+    /**
+     * Обновляет название задачи.
+     *
+     * Валидирует новое название и сохраняет его в существующей записи задачи.
+     */
     public function update(Request $request, Task $task): RedirectResponse
     {
         $validated = $request->validate([
@@ -71,6 +94,12 @@ class TaskController extends Controller
         return back();
     }
 
+    /**
+     * Удаляет задачу из списка.
+     *
+     * Использует стандартное удаление модели, с учётом настроек самой модели Task
+     * и подключённых трейтов, если они используются.
+     */
     public function destroy(Task $task): RedirectResponse
     {
         $task->delete();
@@ -78,6 +107,12 @@ class TaskController extends Controller
         return back();
     }
 
+    /**
+     * Обновляет порядок активных задач внутри списка.
+     *
+     * Принимает массив идентификаторов в новом порядке, проверяет принадлежность задач
+     * текущему списку и меняет sort_order только у невыполненных задач.
+     */
     public function reorder(Request $request, FamilyList $list): RedirectResponse
     {
         $validated = $request->validate([

@@ -1,9 +1,12 @@
 <script setup>
+// Создаёт двустороннюю модель для текста новой задачи.
 const model = defineModel({
     type: String,
     default: '',
 })
 
+// Описывает состояние формы создания задачи:
+// видимость, отправку, ошибки и состояние локальной offline-очереди.
 defineProps({
     show: {
         type: Boolean,
@@ -31,6 +34,7 @@ defineProps({
     },
 })
 
+// Объявляет события отправки формы и закрытия композера.
 defineEmits(['submit', 'close'])
 </script>
 

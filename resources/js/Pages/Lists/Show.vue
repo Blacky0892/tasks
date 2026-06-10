@@ -20,6 +20,7 @@ const props = defineProps({
 })
 
 const page = usePage()
+// Возвращает текущего авторизованного пользователя из Inertia props.
 const user = computed(() => page.props.auth?.user ?? null)
 
 const {
@@ -65,16 +66,19 @@ const listForm = useForm({
     emoji: props.list.emoji,
 })
 
+// Формирует список активных задач, исключая задачи, ожидающие подтверждённого удаления.
 const activeTasks = computed(() => {
     return localActiveTasks.value.filter(task => !pendingDeleteIds.value.includes(task.id))
 })
 
+// Формирует список выполненных задач, исключая задачи, ожидающие подтверждённого удаления.
 const doneTasks = computed(() => {
     return localDoneTasks.value.filter(task => !pendingDeleteIds.value.includes(task.id))
 })
 
 const doneTasksLimit = ref(3)
 
+// Возвращает видимую часть выполненных задач с учётом раскрытия блока и текущего лимита.
 const visibleDoneTasks = computed(() => {
     if (!showDoneTasks.value) {
         return []
@@ -83,12 +87,15 @@ const visibleDoneTasks = computed(() => {
     return doneTasks.value.slice(0, doneTasksLimit.value)
 })
 
+// Считает количество выполненных задач, которые скрыты за кнопкой «Показать ещё».
 const hiddenDoneTasksCount = computed(() => {
     return Math.max(doneTasks.value.length - visibleDoneTasks.value.length, 0)
 })
 
+// Считает общее количество задач в списке, включая локальные офлайн-задачи.
 const tasksTotal = computed(() => activeTasks.value.length + doneTasks.value.length + offlineTasks.value.length)
 
+// Рассчитывает процент выполнения списка на основе общего числа задач.
 const progressPercent = computed(() => {
     if (tasksTotal.value === 0) {
         return 0
@@ -97,10 +104,12 @@ const progressPercent = computed(() => {
     return Math.round((doneTasks.value.length / tasksTotal.value) * 100)
 })
 
+// Находит задачу, для которой сейчас открыто меню действий.
 const openedTask = computed(() => {
     return [...activeTasks.value, ...doneTasks.value].find(task => task.id === openedTaskMenuId.value) ?? null
 })
 
+// Возвращает короткое текстовое состояние списка для шапки страницы.
 const listMood = computed(() => {
     if (tasksTotal.value === 0) {
         return 'Список пустой — самое время добавить первый пункт.'
@@ -113,6 +122,7 @@ const listMood = computed(() => {
     return `${activeTasks.value.length} осталось · ${progressPercent.value}% готово`
 })
 
+// При открытии страницы синхронизирует офлайн-задачи, запускает проверку изменений и подписывает обработчики событий.
 onMounted(() => {
     if (navigator.onLine) {
         syncOfflineTasks()
@@ -131,6 +141,7 @@ onMounted(() => {
     document.addEventListener('visibilitychange', handleVisibilityChange)
 })
 
+// При уходе со страницы очищает таймеры и снимает глобальные обработчики событий.
 onUnmounted(() => {
     if (remoteSyncTimer) {
         window.clearInterval(remoteSyncTimer)
@@ -142,6 +153,7 @@ onUnmounted(() => {
     document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 
+// Следит за восстановлением сети и запускает синхронизацию офлайн-задач.
 watch(
     () => isOnline.value,
     value => {
@@ -151,6 +163,7 @@ watch(
     },
 )
 
+// Следит за обновлением задач, пришедших с сервера, и пересобирает локальные списки.
 watch(
     () => props.list.tasks,
     value => {
@@ -160,21 +173,25 @@ watch(
 
 // Helpers
 
+// Помечает главную страницу как требующую обновления после изменения задач или списка.
 function markHomeNeedsRefresh() {
     sessionStorage.setItem('home:needs-refresh', '1')
 }
 
+// Даёт короткую вибрацию на устройствах, где поддерживается Vibration API.
 function vibrateLight() {
     if ('vibrate' in navigator) {
         navigator.vibrate(8)
     }
 }
 
+// Разделяет серверный список задач на активные и выполненные локальные коллекции.
 function syncLocalTasks(tasks) {
     localActiveTasks.value = tasks.filter(task => !task.is_done)
     localDoneTasks.value = tasks.filter(task => task.is_done)
 }
 
+// Перезагружает PWA: активирует ожидающий service worker или обновляет страницу обычным способом.
 function reloadApp() {
     if (window.__pwaWaitingWorker) {
         window.__pwaWaitingWorker.postMessage({type: 'SKIP_WAITING'})
@@ -186,10 +203,12 @@ function reloadApp() {
 
 // Task composer
 
+// Открывает форму добавления задачи.
 function focusAddTaskInput() {
     showTaskComposer.value = true
 }
 
+// Закрывает форму добавления задачи, если сейчас не идёт отправка данных.
 function closeTaskComposer() {
     if (form.processing) {
         return
@@ -200,6 +219,7 @@ function closeTaskComposer() {
     showTaskComposer.value = false
 }
 
+// Создаёт новую задачу: онлайн отправляет на сервер, офлайн кладёт в локальную очередь.
 function createTask() {
     const title = form.title.trim()
 
@@ -234,6 +254,7 @@ function createTask() {
 
 // Task actions
 
+// Переключает состояние задачи между активной и выполненной.
 function toggleTask(task) {
     if (task._offline) {
         return
@@ -252,6 +273,7 @@ function toggleTask(task) {
     })
 }
 
+// Запускает удаление задачи с задержкой, чтобы пользователь успел отменить действие.
 function deleteTask(task) {
     openedTaskMenuId.value = null
 
@@ -295,6 +317,7 @@ function deleteTask(task) {
     deleteTimers.set(task.id, timer)
 }
 
+// Отменяет отложенное удаление задачи и возвращает её в список.
 function undoDeleteTask(task) {
     const timer = deleteTimers.get(task.id)
 
@@ -306,6 +329,7 @@ function undoDeleteTask(task) {
     removePendingDelete(task.id)
 }
 
+// Убирает задачу из локального списка ожидающих удаления и очищает связанный таймер.
 function removePendingDelete(taskId) {
     pendingDeleteIds.value = pendingDeleteIds.value.filter(id => id !== taskId)
     pendingDeleteTasks.value = pendingDeleteTasks.value.filter(task => task.id !== taskId)
@@ -314,6 +338,7 @@ function removePendingDelete(taskId) {
 
 // Task editing
 
+// Включает режим редактирования выбранной задачи и переводит фокус в поле ввода.
 function startEditTask(task) {
     if (task._offline) {
         return
@@ -328,11 +353,13 @@ function startEditTask(task) {
     })
 }
 
+// Сбрасывает режим редактирования задачи без сохранения изменений.
 function cancelEditTask() {
     editingTaskId.value = null
     editingTitle.value = ''
 }
 
+// Сохраняет новое название задачи, если оно изменилось и доступна сеть.
 function saveEditTask(task) {
     const title = editingTitle.value.trim()
 
@@ -363,30 +390,36 @@ function saveEditTask(task) {
     })
 }
 
+// Увеличивает лимит отображаемых выполненных задач.
 function showMoreDoneTasks() {
     doneTasksLimit.value += 5
 }
 
 // Task menu
 
+// Открывает или закрывает меню действий для выбранной задачи.
 function toggleTaskMenu(task) {
     openedTaskMenuId.value = openedTaskMenuId.value === task.id ? null : task.id
 }
 
+// Закрывает меню действий задачи.
 function closeTaskMenu() {
     openedTaskMenuId.value = null
 }
 
 // Reorder
 
+// Выключает режим ручной сортировки задач.
 function disableTaskReorderMode() {
     taskReorderMode.value = false
 }
 
+// Переключает режим ручной сортировки задач.
 function toggleTaskReorderMode() {
     taskReorderMode.value = !taskReorderMode.value
 }
 
+// Сохраняет новый порядок активных задач на сервере или откатывает порядок без сети.
 function saveTasksOrder() {
     if (!isOnline.value) {
         syncLocalTasks(props.list.tasks)
@@ -407,6 +440,7 @@ function saveTasksOrder() {
 
 // Long press
 
+// Обрабатывает обычный клик по задаче: учитывает долгий тап и режим сортировки.
 function handleTaskTitleClick(task) {
     if (longPressTriggered.value) {
         longPressTriggered.value = false
@@ -420,6 +454,7 @@ function handleTaskTitleClick(task) {
     toggleTask(task)
 }
 
+// Запускает таймер долгого нажатия, чтобы открыть редактирование задачи.
 function startTaskTitleLongPress(task) {
     clearLongPress()
     longPressTriggered.value = false
@@ -431,6 +466,7 @@ function startTaskTitleLongPress(task) {
     }, 500)
 }
 
+// Очищает таймер долгого нажатия, если пользователь отпустил кнопку или отменил действие.
 function clearLongPress() {
     if (!longPressTimer.value) {
         return
@@ -442,6 +478,7 @@ function clearLongPress() {
 
 // List settings
 
+// Открывает настройки списка и заполняет форму актуальными данными.
 function openListSettings() {
     openedTaskMenuId.value = null
     listForm.title = props.list.title
@@ -450,6 +487,7 @@ function openListSettings() {
     showListSettings.value = true
 }
 
+// Закрывает настройки списка, если сохранение сейчас не выполняется.
 function closeListSettings() {
     if (listForm.processing) {
         return
@@ -462,15 +500,18 @@ function closeListSettings() {
     isIconPickerOpen.value = false
 }
 
+// Открывает или закрывает выбор иконки списка.
 function toggleIconPicker() {
     isIconPickerOpen.value = !isIconPickerOpen.value
 }
 
+// Устанавливает выбранную иконку списка и закрывает пикер.
 function selectListIcon(icon) {
     listForm.emoji = icon
     isIconPickerOpen.value = false
 }
 
+// Сохраняет изменённые название и иконку списка на сервере.
 function updateList() {
     if (!isOnline.value) {
         return
@@ -487,6 +528,7 @@ function updateList() {
     })
 }
 
+// Архивирует текущий список после подтверждения пользователя.
 function archiveList() {
     if (!isOnline.value) {
         return
@@ -503,19 +545,23 @@ function archiveList() {
 
 // PWA
 
+// Обрабатывает восстановление сети: синхронизирует очередь и проверяет свежие изменения.
 function handleOnline() {
     syncOfflineTasks()
     checkRemoteChanges()
 }
 
+// Показывает уведомление о доступной новой версии PWA.
 function handlePwaUpdateAvailable() {
     updateAvailable.value = true
 }
 
+// Обрабатывает нижнюю плавающую кнопку добавления задачи.
 function handleBottomAddClick() {
     focusAddTaskInput()
 }
 
+// Проверяет, менялся ли список на сервере, и мягко перезагружает данные при новой версии.
 async function checkRemoteChanges() {
     if (!isOnline.value) {
         return
@@ -573,6 +619,7 @@ async function checkRemoteChanges() {
     }
 }
 
+// Проверяет удалённые изменения, когда вкладка снова становится видимой.
 function handleVisibilityChange() {
     if (document.visibilityState === 'visible') {
         checkRemoteChanges()

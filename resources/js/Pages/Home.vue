@@ -14,12 +14,14 @@ const props = defineProps({
 })
 
 const page = usePage()
+// Возвращает текущего авторизованного пользователя из Inertia props.
 const user = computed(() => page.props.auth?.user ?? null)
 
 const { isOnline } = useNetworkStatus()
 
 const localLists = ref([...props.lists])
 
+// Следит за изменениями списков из props и синхронизирует локальную копию для drag-and-drop.
 watch(
     () => props.lists,
     value => {
@@ -27,16 +29,20 @@ watch(
     },
 )
 
+// Считает общее количество активных задач во всех списках.
 const activeTasksCount = computed(() => {
     return localLists.value.reduce((total, list) => total + Number(list.active_tasks_count || 0), 0)
 })
 
+// Считает общее количество выполненных задач во всех списках.
 const doneTasksCount = computed(() => {
     return localLists.value.reduce((total, list) => total + Number(list.done_tasks_count || 0), 0)
 })
 
+// Возвращает общее количество задач: активные плюс выполненные.
 const totalTasksCount = computed(() => activeTasksCount.value + doneTasksCount.value)
 
+// Рассчитывает общий процент выполненных задач по всем спискам.
 const totalProgressPercent = computed(() => {
     if (totalTasksCount.value === 0) {
         return 0
@@ -45,6 +51,7 @@ const totalProgressPercent = computed(() => {
     return Math.round((doneTasksCount.value / totalTasksCount.value) * 100)
 })
 
+// Подбирает текст подзаголовка главной страницы по текущему состоянию задач.
 const homeSubtitle = computed(() => {
     if (activeTasksCount.value === 0 && doneTasksCount.value > 0) {
         return 'Сегодня всё закрыто. Можно выдохнуть.'
@@ -68,14 +75,17 @@ const remoteListsVersion = ref(null)
 const isCheckingRemoteListsChanges = ref(false)
 let listsSyncTimer = null
 
+// Проверяет, запущено ли приложение как установленное PWA, а не как обычная вкладка браузера.
 function detectStandaloneApp() {
     return window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true
 }
 
+// Обрабатывает событие доступного обновления PWA и показывает кнопку перезагрузки приложения.
 function handlePwaUpdateAvailable() {
     updateAvailable.value = true
 }
 
+// Сохраняет браузерный prompt установки PWA, если приложение ещё не установлено.
 function handleInstallAvailable(event) {
     if (detectStandaloneApp()) {
         return
@@ -85,12 +95,14 @@ function handleInstallAvailable(event) {
     canInstallApp.value = Boolean(installPrompt.value)
 }
 
+// Сбрасывает состояние установки после успешной установки PWA.
 function handleAppInstalled() {
     installPrompt.value = null
     canInstallApp.value = false
     isStandaloneApp.value = true
 }
 
+// Запускает системное окно установки PWA и обновляет состояние после выбора пользователя.
 async function installApp() {
     const prompt = installPrompt.value ?? window.__pwaInstallPrompt
 
@@ -107,6 +119,7 @@ async function installApp() {
     }
 }
 
+// Применяет ожидающее обновление service worker или перезагружает страницу вручную.
 function reloadApp() {
     if (window.__pwaWaitingWorker) {
         window.__pwaWaitingWorker.postMessage({ type: 'SKIP_WAITING' })
@@ -116,6 +129,7 @@ function reloadApp() {
     window.location.reload()
 }
 
+// Перезагружает списки после возврата назад, если другая страница пометила главную как устаревшую.
 function refreshAfterBackNavigation() {
     if (sessionStorage.getItem('home:needs-refresh') !== '1') {
         return
@@ -130,6 +144,7 @@ function refreshAfterBackNavigation() {
     })
 }
 
+// Проверяет на сервере, изменилась ли версия списков, и обновляет данные без полной перезагрузки страницы.
 async function checkRemoteListsChanges() {
     if (!isOnline.value) {
         return
@@ -186,20 +201,24 @@ async function checkRemoteListsChanges() {
     }
 }
 
+// При возвращении вкладки в видимое состояние проверяет свежесть списков.
 function handleVisibilityChange() {
     if (document.visibilityState === 'visible') {
         checkRemoteListsChanges()
     }
 }
 
+// После восстановления интернета сразу проверяет изменения списков на сервере.
 function handleOnline() {
     checkRemoteListsChanges()
 }
 
+// Обрабатывает возврат на страницу из браузерного кеша или истории навигации.
 function handlePageShow() {
     refreshAfterBackNavigation()
 }
 
+// Инициализирует PWA-состояние, синхронизацию списков и обработчики событий при открытии страницы.
 onMounted(() => {
     isStandaloneApp.value = detectStandaloneApp()
 
@@ -226,6 +245,7 @@ onMounted(() => {
     window.addEventListener('pwa-app-installed', handleAppInstalled)
 })
 
+// Очищает таймер синхронизации и снимает обработчики событий при уходе со страницы.
 onUnmounted(() => {
     if (listsSyncTimer) {
         window.clearInterval(listsSyncTimer)
@@ -246,20 +266,24 @@ const form = useForm({
     emoji: '📝',
 })
 
+// Открывает или закрывает выбор иконки для нового списка.
 function toggleCreateIconPicker() {
     isCreateIconPickerOpen.value = !isCreateIconPickerOpen.value
 }
 
+// Устанавливает выбранную иконку в форму создания списка и закрывает пикер.
 function selectCreateIcon(icon) {
     form.emoji = icon
     isCreateIconPickerOpen.value = false
 }
 
+// Показывает форму создания нового списка и закрывает выбор иконки.
 function openCreateForm() {
     showCreateForm.value = true
     isCreateIconPickerOpen.value = false
 }
 
+// Закрывает форму создания списка и возвращает её к начальному состоянию.
 function closeCreateForm() {
     showCreateForm.value = false
     isCreateIconPickerOpen.value = false
@@ -268,10 +292,12 @@ function closeCreateForm() {
     form.clearErrors()
 }
 
+// Возвращает общее количество задач в конкретном списке.
 function listTasksTotal(list) {
     return Number(list.active_tasks_count || 0) + Number(list.done_tasks_count || 0)
 }
 
+// Рассчитывает процент выполнения задач для конкретного списка.
 function listProgressPercent(list) {
     const total = listTasksTotal(list)
 
@@ -282,6 +308,7 @@ function listProgressPercent(list) {
     return Math.round((Number(list.done_tasks_count || 0) / total) * 100)
 }
 
+// Формирует короткую подпись прогресса списка для отображения в карточке.
 function progressLabel(list) {
     const total = listTasksTotal(list)
 
@@ -296,6 +323,7 @@ function progressLabel(list) {
     return `${listProgressPercent(list)}%`
 }
 
+// Возвращает CSS-класс статуса списка: пустой, завершённый или активный.
 function listStatusClass(list) {
     const total = listTasksTotal(list)
 
@@ -310,6 +338,7 @@ function listStatusClass(list) {
     return 'home-list-card-status-active'
 }
 
+// Возвращает текст статуса списка: «Пусто», «Готово» или количество активных задач.
 function listStatusText(list) {
     const total = listTasksTotal(list)
 
@@ -324,6 +353,7 @@ function listStatusText(list) {
     return Number(list.active_tasks_count || 0)
 }
 
+// Отправляет форму создания списка на сервер, если приложение онлайн.
 function createList() {
     if (!isOnline.value) {
         return
@@ -342,6 +372,7 @@ function createList() {
     })
 }
 
+// Создаёт список из готового шаблона с переданным названием и иконкой.
 function createTemplateList(title, emoji) {
     if (form.processing || !isOnline.value) {
         return
@@ -352,6 +383,7 @@ function createTemplateList(title, emoji) {
     createList()
 }
 
+// Включает или выключает режим ручной сортировки списков.
 function toggleListReorderMode() {
     if (!isOnline.value) {
         return
@@ -360,10 +392,12 @@ function toggleListReorderMode() {
     listReorderMode.value = !listReorderMode.value
 }
 
+// Принудительно выключает режим сортировки списков.
 function disableListReorderMode() {
     listReorderMode.value = false
 }
 
+// Блокирует переход в список при клике, если сейчас включён режим сортировки.
 function handleListClick(event) {
     if (!listReorderMode.value) {
         return
@@ -372,6 +406,7 @@ function handleListClick(event) {
     event.preventDefault()
 }
 
+// Сохраняет новый порядок списков на сервере или откатывает локальные изменения без интернета.
 function saveListsOrder() {
     if (!isOnline.value) {
         localLists.value = [...props.lists]

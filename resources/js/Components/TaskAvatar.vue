@@ -1,6 +1,7 @@
 <script setup>
 import { userInitials } from '@/Support/userInitials'
 
+// Описывает пользователя для аватара и режим приглушённого отображения.
 defineProps({
     user: {
         type: Object,

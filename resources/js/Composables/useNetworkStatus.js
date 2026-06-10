@@ -8,6 +8,7 @@ const wasOffline = ref(false)
 const recentlyRestored = ref(false)
 let restoredTimer = null
 
+// Переводит приложение в онлайн-режим и временно показывает статус восстановления соединения.
 function setOnline() {
     isOnline.value = true
 
@@ -24,13 +25,16 @@ function setOnline() {
     wasOffline.value = false
 }
 
+// Переводит приложение в офлайн-режим и сбрасывает индикатор восстановленного соединения.
 function setOffline() {
     isOnline.value = false
     wasOffline.value = true
     recentlyRestored.value = false
 }
 
+// Возвращает реактивное состояние сети и текстовые статусы для отображения в интерфейсе.
 export function useNetworkStatus() {
+    // При монтировании синхронизирует текущее состояние сети и подписывается на системные события браузера.
     onMounted(() => {
         isOnline.value = navigator.onLine
 
@@ -38,11 +42,13 @@ export function useNetworkStatus() {
         window.addEventListener('offline', setOffline)
     })
 
+    // При размонтировании удаляет обработчики, чтобы не оставлять лишние слушатели событий.
     onUnmounted(() => {
         window.removeEventListener('online', setOnline)
         window.removeEventListener('offline', setOffline)
     })
 
+    // Формирует короткий текстовый статус сети для бейджа или уведомления.
     const networkLabel = computed(() => {
         if (!isOnline.value) {
             return 'Нет сети'
@@ -55,6 +61,7 @@ export function useNetworkStatus() {
         return 'Онлайн'
     })
 
+    // Формирует пояснение к сетевому статусу, если пользователю нужно показать дополнительный текст.
     const networkDescription = computed(() => {
         if (!isOnline.value) {
             return 'Проверьте подключение. Изменения пока не отправятся.'

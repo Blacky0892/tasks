@@ -9,8 +9,20 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
+/**
+ * Контроллер для работы со списками задач семьи.
+ *
+ * Отвечает за отображение списков, создание, редактирование, архивирование,
+ * сортировку и выдачу контрольной версии состояния для синхронизации интерфейса.
+ */
 class FamilyListController extends Controller
 {
+    /**
+     * Показывает главную страницу со всеми неархивными списками.
+     *
+     * Для каждого списка дополнительно считает количество активных и выполненных задач,
+     * затем передаёт данные в Inertia-компонент главной страницы.
+     */
     public function index(): Response
     {
         $lists = FamilyList::query()
@@ -28,6 +40,12 @@ class FamilyListController extends Controller
         ]);
     }
 
+    /**
+     * Создаёт новый список задач.
+     *
+     * Валидирует название и эмодзи, назначает следующий порядок сортировки
+     * среди неархивных списков и сохраняет автора создания.
+     */
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
@@ -49,6 +67,11 @@ class FamilyListController extends Controller
         return back();
     }
 
+    /**
+     * Обновляет название и эмодзи существующего списка.
+     *
+     * Если эмодзи не передано, устанавливает стандартную иконку списка задач.
+     */
     public function update(Request $request, FamilyList $list): RedirectResponse
     {
         $validated = $request->validate([
@@ -64,6 +87,12 @@ class FamilyListController extends Controller
         return back();
     }
 
+    /**
+     * Архивирует список задач.
+     *
+     * Список не удаляется физически из базы, а помечается датой архивирования
+     * и после этого скрывается с главной страницы.
+     */
     public function destroy(FamilyList $list): RedirectResponse
     {
         $list->update([
@@ -73,6 +102,12 @@ class FamilyListController extends Controller
         return redirect()->route('home');
     }
 
+    /**
+     * Показывает страницу конкретного списка задач.
+     *
+     * Загружает автора списка, задачи, авторов задач и пользователей,
+     * которые отметили задачи выполненными. Активные задачи выводятся выше выполненных.
+     */
     public function show(FamilyList $list): Response
     {
         $list->load([
@@ -96,6 +131,12 @@ class FamilyListController extends Controller
         ]);
     }
 
+    /**
+     * Возвращает выполненные задачи списка обратно в активные.
+     *
+     * Каждой восстановленной задаче сбрасываются данные выполнения,
+     * а новый порядок сортировки назначается после текущих активных задач.
+     */
     public function repeatDoneTasks(FamilyList $list): RedirectResponse
     {
         $maxSortOrder = (int) $list->tasks()
@@ -119,6 +160,12 @@ class FamilyListController extends Controller
         return back();
     }
 
+    /**
+     * Обновляет порядок списков на главной странице.
+     *
+     * Принимает массив идентификаторов в новом порядке и последовательно
+     * записывает значение sort_order для каждого списка.
+     */
     public function reorder(Request $request): RedirectResponse
     {
         $validated = $request->validate([
@@ -137,6 +184,13 @@ class FamilyListController extends Controller
         return back();
     }
 
+    /**
+     * Возвращает контрольную версию состояния конкретного списка.
+     *
+     * Версия строится из количества активных и выполненных задач,
+     * даты обновления списка и дат создания/обновления задач. Используется фронтом,
+     * чтобы понять, нужно ли перезагрузить данные списка.
+     */
     public function syncState(FamilyList $list): JsonResponse
     {
         $activeTasksCount = $list->tasks()
@@ -167,6 +221,13 @@ class FamilyListController extends Controller
         ]);
     }
 
+    /**
+     * Возвращает контрольную версию состояния главной страницы со списками.
+     *
+     * Учитывает количество списков и задач, последние даты изменений,
+     * а также отпечаток сортировки списков. Нужна для синхронизации главной страницы
+     * между пользователями или вкладками без постоянной полной перезагрузки данных.
+     */
     public function indexSyncState(): JsonResponse
     {
         $latestListUpdatedAt = FamilyList::query()

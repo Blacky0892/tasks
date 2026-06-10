@@ -1,6 +1,7 @@
 <script setup>
 import TaskAvatar from '@/Components/TaskAvatar.vue'
 
+// Описывает локальную задачу, которая ещё не была отправлена на сервер.
 defineProps({
     task: {
         type: Object,
@@ -8,6 +9,7 @@ defineProps({
     },
 })
 
+// Объявляет событие удаления задачи из локальной очереди.
 defineEmits(['remove'])
 </script>
 
