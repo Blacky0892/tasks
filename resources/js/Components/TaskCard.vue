@@ -70,6 +70,18 @@ const checkLabel = computed(() => {
         ? 'Вернуть в активные'
         : 'Отметить выполненной'
 })
+
+const completedByName = computed(() => {
+    return props.task.completed_by?.name ?? props.task.completed_by?.email ?? null
+})
+
+const completedHint = computed(() => {
+    if (props.variant !== 'done' || !completedByName.value) {
+        return ''
+    }
+
+    return `${completedByName.value} отметил(а) выполненным`
+})
 </script>
 
 <template>
@@ -123,7 +135,7 @@ const checkLabel = computed(() => {
             <button
                 v-else
                 type="button"
-                class="min-w-0 flex-1 select-none py-2 text-left text-[17px] leading-snug line-clamp-3 sm:text-lg sm:line-clamp-2"
+                class="min-w-0 flex-1 select-none py-2 text-left text-[17px] leading-snug sm:text-lg"
                 :class="titleClass"
                 @click="emit('toggle', task)"
                 @contextmenu.prevent="emit('edit', task)"
@@ -132,7 +144,15 @@ const checkLabel = computed(() => {
                 @pointerleave="emit('clear-long-press')"
                 @pointercancel="emit('clear-long-press')"
             >
-                {{ task.title }}
+                <span class="line-clamp-3 sm:line-clamp-2">{{ task.title }}</span>
+
+                <span
+                    v-if="completedHint"
+                    class="mt-1 inline-flex max-w-full items-center rounded-full bg-white/60 px-2.5 py-1 text-[11px] font-bold text-[var(--home-text-subtle)] ring-1 ring-[var(--home-border)]"
+                    :title="completedHint"
+                >
+                    <span class="truncate">{{ completedHint }}</span>
+                </span>
             </button>
 
             <button
