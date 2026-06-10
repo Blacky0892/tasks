@@ -5,6 +5,7 @@ import draggable from 'vuedraggable'
 import NetworkStatus from '@/Components/NetworkStatus.vue'
 import { useNetworkStatus } from '@/Composables/useNetworkStatus'
 import { useOfflineTaskQueue } from '@/Composables/useOfflineTaskQueue'
+import { listIconOptions } from '@/Support/listIcons'
 
 const props = defineProps({
     list: {
@@ -139,6 +140,17 @@ const listForm = useForm({
     emoji: props.list.emoji,
 })
 
+const isIconPickerOpen = ref(false)
+
+function toggleIconPicker() {
+    isIconPickerOpen.value = !isIconPickerOpen.value
+}
+
+function selectListIcon(icon) {
+    listForm.emoji = icon
+    isIconPickerOpen.value = false
+}
+
 function updateList() {
     if (!isOnline.value) {
         return
@@ -150,6 +162,7 @@ function updateList() {
         preserveScroll: true,
         onSuccess: () => {
             showListSettings.value = false
+            isIconPickerOpen.value = false
         },
     })
 }
@@ -407,6 +420,7 @@ function closeListSettings() {
     listForm.emoji = props.list.emoji
     listForm.clearErrors()
     showListSettings.value = false
+    isIconPickerOpen.value = false
 }
 
 function handleBottomAddClick() {
@@ -1078,20 +1092,49 @@ function saveTasksOrder() {
                         </button>
                     </div>
 
-                    <div class="grid gap-3 px-2 pb-2 sm:grid-cols-[5rem_1fr]">
-                        <input
-                            v-model="listForm.emoji"
-                            class="home-input h-14 rounded-[1.35rem] text-center text-2xl"
-                            maxlength="4"
-                            aria-label="Эмодзи списка"
-                        >
+                    <div class="px-2 pb-2">
+                        <div class="flex items-center gap-3">
+                            <button
+                                type="button"
+                                class="home-input flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.35rem] text-2xl transition active:scale-[0.96]"
+                                :class="isIconPickerOpen ? 'ring-2 ring-[var(--home-focus)] ring-offset-2 ring-offset-white' : ''"
+                                :aria-expanded="isIconPickerOpen"
+                                aria-label="Выбрать иконку списка"
+                                @click="toggleIconPicker"
+                            >
+                                {{ listForm.emoji }}
+                            </button>
 
-                        <input
-                            v-model="listForm.title"
-                            class="home-input h-14 min-w-0 rounded-[1.35rem] px-4 text-base font-semibold"
-                            placeholder="Название списка"
-                            aria-label="Название списка"
+                            <input
+                                v-model="listForm.title"
+                                class="home-input h-14 min-w-0 flex-1 rounded-[1.35rem] px-4 text-base font-semibold"
+                                placeholder="Название списка"
+                                aria-label="Название списка"
+                            >
+                        </div>
+
+                        <div
+                            v-if="isIconPickerOpen"
+                            class="mt-3"
                         >
+                            <div class="home-subtle px-1 text-xs font-bold uppercase tracking-wide">
+                                Выберите иконку
+                            </div>
+
+                            <div class="mt-2 grid max-h-64 grid-cols-6 gap-2 overflow-y-auto pr-1 sm:grid-cols-8">
+                                <button
+                                    v-for="icon in listIconOptions"
+                                    :key="icon"
+                                    type="button"
+                                    class="home-soft-button flex h-12 items-center justify-center rounded-[1.15rem] text-2xl transition active:scale-[0.96]"
+                                    :class="listForm.emoji === icon ? 'ring-2 ring-[var(--home-focus)] ring-offset-2 ring-offset-white' : ''"
+                                    :aria-label="`Выбрать иконку ${icon}`"
+                                    @click="selectListIcon(icon)"
+                                >
+                                    {{ icon }}
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     <div

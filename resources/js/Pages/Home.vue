@@ -4,6 +4,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import draggable from 'vuedraggable'
 import NetworkStatus from '@/Components/NetworkStatus.vue'
 import { useNetworkStatus } from '@/Composables/useNetworkStatus'
+import { listIconOptions } from '@/Support/listIcons'
 
 const props = defineProps({
     lists: {
@@ -57,6 +58,7 @@ const homeSubtitle = computed(() => {
 })
 
 const showCreateForm = ref(false)
+const isCreateIconPickerOpen = ref(false)
 const listReorderMode = ref(false)
 const updateAvailable = ref(false)
 const canInstallApp = ref(false)
@@ -157,6 +159,28 @@ const form = useForm({
     emoji: '📝',
 })
 
+function toggleCreateIconPicker() {
+    isCreateIconPickerOpen.value = !isCreateIconPickerOpen.value
+}
+
+function selectCreateIcon(icon) {
+    form.emoji = icon
+    isCreateIconPickerOpen.value = false
+}
+
+function openCreateForm() {
+    showCreateForm.value = true
+    isCreateIconPickerOpen.value = false
+}
+
+function closeCreateForm() {
+    showCreateForm.value = false
+    isCreateIconPickerOpen.value = false
+    form.reset()
+    form.emoji = '📝'
+    form.clearErrors()
+}
+
 function listTasksTotal(list) {
     return Number(list.active_tasks_count || 0) + Number(list.done_tasks_count || 0)
 }
@@ -224,6 +248,7 @@ function createList() {
             form.reset()
             form.emoji = '📝'
             showCreateForm.value = false
+            isCreateIconPickerOpen.value = false
         },
     })
 }
@@ -557,19 +582,49 @@ function saveListsOrder() {
                     class="home-card rounded-[2rem] p-4 shadow-lg sm:p-5"
                     @submit.prevent="createList"
                 >
-                    <div class="flex gap-3">
-                        <input
-                            v-model="form.emoji"
-                            class="home-input h-[52px] w-16 rounded-2xl text-center text-2xl"
-                            maxlength="4"
-                        >
+                    <div>
+                        <div class="flex gap-3">
+                            <button
+                                type="button"
+                                class="home-input flex h-[52px] w-16 shrink-0 items-center justify-center rounded-2xl text-2xl transition active:scale-[0.96]"
+                                :class="isCreateIconPickerOpen ? 'ring-2 ring-[var(--home-focus)] ring-offset-2 ring-offset-white' : ''"
+                                :aria-expanded="isCreateIconPickerOpen"
+                                aria-label="Выбрать иконку списка"
+                                @click="toggleCreateIconPicker"
+                            >
+                                {{ form.emoji }}
+                            </button>
 
-                        <input
-                            v-model="form.title"
-                            class="home-input h-[52px] min-w-0 flex-1 rounded-2xl px-4 text-[17px]"
-                            placeholder="Название списка"
-                            autofocus
+                            <input
+                                v-model="form.title"
+                                class="home-input h-[52px] min-w-0 flex-1 rounded-2xl px-4 text-[17px]"
+                                placeholder="Название списка"
+                                autofocus
+                            >
+                        </div>
+
+                        <div
+                            v-if="isCreateIconPickerOpen"
+                            class="mt-3"
                         >
+                            <div class="home-subtle px-1 text-xs font-bold uppercase tracking-wide">
+                                Выберите иконку
+                            </div>
+
+                            <div class="mt-2 grid max-h-64 grid-cols-6 gap-2 overflow-y-auto pr-1 sm:grid-cols-8">
+                                <button
+                                    v-for="icon in listIconOptions"
+                                    :key="icon"
+                                    type="button"
+                                    class="home-soft-button flex h-12 items-center justify-center rounded-[1.15rem] text-2xl transition active:scale-[0.96]"
+                                    :class="form.emoji === icon ? 'ring-2 ring-[var(--home-focus)] ring-offset-2 ring-offset-white' : ''"
+                                    :aria-label="`Выбрать иконку ${icon}`"
+                                    @click="selectCreateIcon(icon)"
+                                >
+                                    {{ icon }}
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     <div
@@ -592,7 +647,7 @@ function saveListsOrder() {
                             type="button"
                             class="home-soft-button min-h-12 rounded-2xl px-4 py-3 font-medium"
                             :disabled="form.processing"
-                            @click="showCreateForm = false"
+                            @click="closeCreateForm"
                         >
                             Отмена
                         </button>
@@ -603,7 +658,7 @@ function saveListsOrder() {
                     v-else
                     type="button"
                     class="home-primary-button min-h-14 w-full rounded-[2rem] px-5 py-4 text-[17px] font-semibold active:scale-[0.99]"
-                    @click="showCreateForm = true"
+                    @click="openCreateForm"
                 >
                     + Новый список
                 </button>
