@@ -62,8 +62,8 @@
 Склонируйте репозиторий и перейдите в директорию проекта:
 
 ```bash
-git clone git@github.com:username/repository.git
-cd repository
+git clone git@github.com:Blacky0892/tasks.git
+cd tasks
 ```
 
 Установите backend-зависимости:
@@ -142,7 +142,7 @@ php artisan family:create-user "Антон"
 Можно указать email явно:
 
 ```bash
-php artisan family:create-user "Мария" maria@example.com
+php artisan family:create-user "Марина" marina@example.com
 ```
 
 После выполнения команда выведет персональную ссылку:
