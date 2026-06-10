@@ -57,6 +57,7 @@ const homeSubtitle = computed(() => {
 })
 
 const showCreateForm = ref(false)
+const listReorderMode = ref(false)
 const updateAvailable = ref(false)
 const canInstallApp = ref(false)
 const installPrompt = ref(null)
@@ -110,6 +111,24 @@ function reloadApp() {
     window.location.reload()
 }
 
+function refreshAfterBackNavigation() {
+    if (sessionStorage.getItem('home:needs-refresh') !== '1') {
+        return
+    }
+
+    sessionStorage.removeItem('home:needs-refresh')
+
+    router.reload({
+        only: ['lists'],
+        preserveScroll: true,
+        preserveState: false,
+    })
+}
+
+function handlePageShow() {
+    refreshAfterBackNavigation()
+}
+
 onMounted(() => {
     isStandaloneApp.value = detectStandaloneApp()
 
@@ -117,6 +136,10 @@ onMounted(() => {
         installPrompt.value = window.__pwaInstallPrompt
         canInstallApp.value = true
     }
+
+    refreshAfterBackNavigation()
+
+    window.addEventListener('pageshow', handlePageShow)
 
     window.addEventListener('pwa-update-available', handlePwaUpdateAvailable)
     window.addEventListener('pwa-install-available', handleInstallAvailable)
@@ -215,6 +238,26 @@ function createTemplateList(title, emoji) {
     createList()
 }
 
+function toggleListReorderMode() {
+    if (!isOnline.value) {
+        return
+    }
+
+    listReorderMode.value = !listReorderMode.value
+}
+
+function disableListReorderMode() {
+    listReorderMode.value = false
+}
+
+function handleListClick(event) {
+    if (!listReorderMode.value) {
+        return
+    }
+
+    event.preventDefault()
+}
+
 function saveListsOrder() {
     if (!isOnline.value) {
         localLists.value = [...props.lists]
@@ -256,9 +299,16 @@ function saveListsOrder() {
                             </div>
                         </div>
 
-                        <div class="home-hero-icon flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.45rem] text-3xl sm:h-16 sm:w-16 sm:text-4xl">
+                        <button
+                            type="button"
+                            class="home-hero-icon flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.45rem] text-3xl transition active:scale-95 disabled:opacity-50 sm:h-16 sm:w-16 sm:text-4xl"
+                            :class="listReorderMode ? 'ring-4 ring-white/70' : ''"
+                            :disabled="!isOnline"
+                            :aria-label="listReorderMode ? 'Выключить сортировку списков' : 'Включить сортировку списков'"
+                            @click="toggleListReorderMode"
+                        >
                             🏡
-                        </div>
+                        </button>
                     </div>
 
                     <div class="relative mt-5 rounded-[1.55rem] bg-white/45 p-3 ring-1 ring-white/55">
@@ -354,23 +404,53 @@ function saveListsOrder() {
             </Transition>
 
             <section>
+                <div
+                    v-if="listReorderMode"
+                    class="home-soft-card mb-3 rounded-[1.75rem] p-3"
+                >
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <div class="home-title text-sm font-bold">
+                                Режим сортировки списков
+                            </div>
+                            <div class="home-muted mt-1 text-xs font-semibold">
+                                Тяните карточки за ручку слева.
+                            </div>
+                        </div>
+
+                        <button
+                            type="button"
+                            class="home-soft-button shrink-0 rounded-full px-4 py-2 text-sm font-semibold"
+                            @click="disableListReorderMode"
+                        >
+                            Готово
+                        </button>
+                    </div>
+                </div>
+
                 <draggable
                     v-model="localLists"
                     item-key="id"
                     handle=".list-drag-handle"
                     tag="div"
                     class="space-y-3"
+                    :class="listReorderMode ? 'rounded-[2rem] ring-2 ring-[var(--home-focus)] ring-offset-2 ring-offset-[var(--home-bg)]' : ''"
+                    :disabled="!listReorderMode"
                     ghost-class="opacity-40"
                     chosen-class="scale-[0.99]"
                     animation="180"
                     @end="saveListsOrder"
                 >
                     <template #item="{ element: list }">
-                        <div class="home-card home-tap-card relative overflow-hidden rounded-[2rem] p-2 transition active:scale-[0.99] sm:p-3">
+                        <div
+                            class="home-card home-tap-card relative overflow-hidden rounded-[2rem] p-2 transition active:scale-[0.99] sm:p-3"
+                            :class="listReorderMode ? 'border-[var(--home-focus)] bg-[var(--home-surface-soft)]' : ''"
+                        >
                             <div class="flex items-stretch">
                                 <button
+                                    v-if="listReorderMode"
                                     type="button"
-                                    class="list-drag-handle home-drag-handle-mobile flex w-8 shrink-0 items-center justify-center rounded-l-[2rem] text-lg active:cursor-grabbing sm:w-10 sm:text-xl"
+                                    class="list-drag-handle home-drag-handle-mobile flex w-8 shrink-0 cursor-grab items-center justify-center rounded-l-[2rem] text-lg active:cursor-grabbing sm:w-10 sm:text-xl"
                                     aria-label="Перетащить список"
                                 >
                                     ⋮⋮
@@ -379,6 +459,8 @@ function saveListsOrder() {
                                 <Link
                                     :href="route('lists.show', list.id)"
                                     class="block min-w-0 flex-1 rounded-[1.65rem] p-3 transition active:scale-[0.99] sm:p-4"
+                                    :class="listReorderMode ? 'cursor-grab' : ''"
+                                    @click="handleListClick"
                                 >
                                     <div class="flex items-start justify-between gap-3">
                                         <div class="min-w-0 flex-1">

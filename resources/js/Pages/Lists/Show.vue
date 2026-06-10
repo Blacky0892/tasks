@@ -128,6 +128,10 @@ function closeTaskComposer() {
     showTaskComposer.value = false
 }
 
+function markHomeNeedsRefresh() {
+    sessionStorage.setItem('home:needs-refresh', '1')
+}
+
 const showListSettings = ref(false)
 
 const listForm = useForm({
@@ -139,6 +143,8 @@ function updateList() {
     if (!isOnline.value) {
         return
     }
+
+    markHomeNeedsRefresh()
 
     listForm.patch(route('lists.update', props.list.id), {
         preserveScroll: true,
@@ -157,24 +163,18 @@ function archiveList() {
         return
     }
 
+    markHomeNeedsRefresh()
+
     router.delete(route('lists.destroy', props.list.id))
-}
-
-function repeatDoneTasks() {
-    if (!isOnline.value) {
-        return
-    }
-
-    router.post(route('lists.repeat-done-tasks', props.list.id), {}, {
-        preserveScroll: true,
-    })
 }
 
 const editingTaskId = ref(null)
 const editingTitle = ref('')
 const editingInput = ref(null)
 const openedTaskMenuId = ref(null)
+const taskReorderMode = ref(false)
 const longPressTimer = ref(null)
+const longPressTriggered = ref(false)
 
 function startEditTask(task) {
     if (task._offline) {
@@ -212,6 +212,8 @@ function saveEditTask(task) {
         cancelEditTask()
         return
     }
+
+    markHomeNeedsRefresh()
 
     router.patch(route('tasks.update', task.id), {
         title,
@@ -277,27 +279,26 @@ function createTask() {
     }
 
     if (!isOnline.value) {
+        markHomeNeedsRefresh()
         addOfflineTask(title, user.value)
         vibrateLight()
 
         form.reset()
-
-        nextTick(() => {
-            addTaskInput.value?.focus()
-        })
+        form.clearErrors()
+        showTaskComposer.value = false
 
         return
     }
+
+    markHomeNeedsRefresh()
 
     form.post(route('tasks.store', props.list.id), {
         preserveScroll: true,
         onSuccess: () => {
             vibrateLight()
             form.reset()
-
-            nextTick(() => {
-                addTaskInput.value?.focus()
-            })
+            form.clearErrors()
+            showTaskComposer.value = false
         },
     })
 }
@@ -312,6 +313,7 @@ function toggleTask(task) {
     }
 
     openedTaskMenuId.value = null
+    markHomeNeedsRefresh()
     vibrateLight()
 
     router.post(route('tasks.toggle', task.id), {}, {
@@ -323,6 +325,7 @@ function deleteTask(task) {
     openedTaskMenuId.value = null
 
     if (task._offline) {
+        markHomeNeedsRefresh()
         removeOfflineTask(task.id)
         return
     }
@@ -334,6 +337,8 @@ function deleteTask(task) {
     if (pendingDeleteIds.value.includes(task.id)) {
         return
     }
+
+    markHomeNeedsRefresh()
 
     pendingDeleteIds.value = [
         ...pendingDeleteIds.value,
@@ -386,16 +391,22 @@ function userInitials(name) {
 }
 
 function openListSettings() {
+    openedTaskMenuId.value = null
+    listForm.title = props.list.title
+    listForm.emoji = props.list.emoji
+    listForm.clearErrors()
     showListSettings.value = true
+}
 
-    nextTick(() => {
-        document
-            .getElementById('list-settings')
-            ?.scrollIntoView({
-                behavior: 'smooth',
-                block: 'start',
-            })
-    })
+function closeListSettings() {
+    if (listForm.processing) {
+        return
+    }
+
+    listForm.title = props.list.title
+    listForm.emoji = props.list.emoji
+    listForm.clearErrors()
+    showListSettings.value = false
 }
 
 function handleBottomAddClick() {
@@ -410,11 +421,37 @@ function closeTaskMenu() {
     openedTaskMenuId.value = null
 }
 
-function startLongPress(task) {
+function enableTaskReorderMode() {
+    openedTaskMenuId.value = null
+    cancelEditTask()
+    taskReorderMode.value = true
+    closeListSettings()
+}
+
+function disableTaskReorderMode() {
+    taskReorderMode.value = false
+}
+
+function handleTaskTitleClick(task) {
+    if (longPressTriggered.value) {
+        longPressTriggered.value = false
+        return
+    }
+
+    if (taskReorderMode.value) {
+        return
+    }
+
+    toggleTask(task)
+}
+
+function startTaskTitleLongPress(task) {
     clearLongPress()
+    longPressTriggered.value = false
 
     longPressTimer.value = window.setTimeout(() => {
-        openedTaskMenuId.value = task.id
+        longPressTriggered.value = true
+        startEditTask(task)
         vibrateLight()
     }, 500)
 }
@@ -433,6 +470,8 @@ function saveTasksOrder() {
         syncLocalTasks(props.list.tasks)
         return
     }
+
+    markHomeNeedsRefresh()
 
     router.patch(route('tasks.reorder', props.list.id), {
         ids: localActiveTasks.value
@@ -532,78 +571,6 @@ function saveTasksOrder() {
                 </div>
             </header>
 
-            <section
-                id="list-settings"
-                class="mb-5"
-            >
-                <button
-                    v-if="!showListSettings"
-                    type="button"
-                    class="home-secondary-button hidden w-full rounded-[1.75rem] px-5 py-4 text-base font-semibold sm:block"
-                    @click="showListSettings = true"
-                >
-                    Настройки списка
-                </button>
-
-                <form
-                    v-else
-                    class="home-card rounded-[2rem] p-5"
-                    @submit.prevent="updateList"
-                >
-                    <div class="home-title text-lg font-semibold">
-                        Настройки списка
-                    </div>
-
-                    <div class="mt-4 flex gap-3">
-                        <input
-                            v-model="listForm.emoji"
-                            class="home-input h-12 w-16 rounded-2xl text-center text-2xl"
-                            maxlength="4"
-                        >
-
-                        <input
-                            v-model="listForm.title"
-                            class="home-input h-12 min-w-0 flex-1 rounded-2xl px-4 text-base"
-                            placeholder="Название списка"
-                        >
-                    </div>
-
-                    <div
-                        v-if="listForm.errors.title"
-                        class="mt-2 text-sm text-red-500"
-                    >
-                        {{ listForm.errors.title }}
-                    </div>
-
-                    <div class="mt-4 flex gap-2">
-                        <button
-                            type="submit"
-                            class="home-primary-button flex-1 rounded-2xl px-4 py-3 font-semibold"
-                            :disabled="listForm.processing || !isOnline"
-                        >
-                            {{ listForm.processing ? 'Сохраняю…' : 'Сохранить' }}
-                        </button>
-
-                        <button
-                            type="button"
-                            class="home-soft-button rounded-2xl px-4 py-3 font-medium"
-                            :disabled="listForm.processing"
-                            @click="showListSettings = false"
-                        >
-                            Отмена
-                        </button>
-                    </div>
-
-                    <button
-                        type="button"
-                        class="home-danger-button mt-4 w-full rounded-2xl px-4 py-3 font-medium"
-                        @click="archiveList"
-                    >
-                        Архивировать список
-                    </button>
-                </form>
-            </section>
-
             <Transition
                 enter-active-class="transition duration-200 ease-out"
                 enter-from-class="opacity-0"
@@ -664,10 +631,10 @@ function saveTasksOrder() {
                             type="submit"
                             class="home-composer-add grid min-h-[72px] w-[58px] shrink-0 place-items-center rounded-[1.5rem] text-[28px] font-normal leading-none transition active:scale-[0.96] disabled:opacity-50 sm:min-h-[52px] sm:w-[52px] sm:text-2xl"
                             :disabled="form.processing || !form.title.trim()"
-                            aria-label="Добавить задачу"
+                            aria-label="Сохранить задачу"
                         >
                 <span aria-hidden="true" class="-mt-0.5 leading-none">
-                    {{ form.processing ? '…' : '＋' }}
+                    {{ form.processing ? '…' : '✓' }}
                 </span>
                         </button>
                     </div>
@@ -698,20 +665,6 @@ function saveTasksOrder() {
                     </div>
                 </form>
             </Transition>
-
-            <div
-                v-if="doneTasks.length > 0"
-                class="mb-5 hidden sm:block"
-            >
-                <button
-                    type="button"
-                    class="home-secondary-button w-full rounded-[1.75rem] px-5 py-4 text-base font-semibold active:scale-[0.99]"
-                    :disabled="!isOnline"
-                    @click="repeatDoneTasks"
-                >
-                    ↺ Повторить выполненные
-                </button>
-            </div>
 
             <section class="space-y-3">
                 <div
@@ -791,12 +744,38 @@ function saveTasksOrder() {
                     </div>
                 </TransitionGroup>
 
+                <div
+                    v-if="taskReorderMode"
+                    class="home-soft-card mb-3 rounded-[1.75rem] p-3"
+                >
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <div class="home-title text-sm font-bold">
+                                Режим сортировки задач
+                            </div>
+                            <div class="home-muted mt-1 text-xs font-semibold">
+                                Тяните задачи за ручку слева.
+                            </div>
+                        </div>
+
+                        <button
+                            type="button"
+                            class="home-soft-button shrink-0 rounded-full px-4 py-2 text-sm font-semibold"
+                            @click="disableTaskReorderMode"
+                        >
+                            Готово
+                        </button>
+                    </div>
+                </div>
+
                 <draggable
                     v-model="localActiveTasks"
                     item-key="id"
                     handle=".task-drag-handle"
                     tag="div"
                     class="space-y-3"
+                    :class="taskReorderMode ? 'rounded-[2rem] ring-2 ring-[var(--home-focus)] ring-offset-2 ring-offset-[var(--home-bg)]' : ''"
+                    :disabled="!taskReorderMode"
                     ghost-class="opacity-40"
                     chosen-class="scale-[0.99]"
                     animation="180"
@@ -806,9 +785,11 @@ function saveTasksOrder() {
                         <div
                             v-if="!pendingDeleteIds.includes(task.id)"
                             class="home-card home-task-card relative rounded-[1.8rem] p-3 transition active:scale-[0.99] sm:p-4"
+                            :class="taskReorderMode ? 'border-[var(--home-focus)] bg-[var(--home-surface-soft)]' : ''"
                         >
                             <div class="flex min-h-[60px] items-center gap-3">
                                 <button
+                                    v-if="taskReorderMode"
                                     type="button"
                                     class="task-drag-handle flex h-12 w-8 shrink-0 cursor-grab items-center justify-center rounded-full text-xl text-[var(--home-text-subtle)] active:cursor-grabbing sm:h-10 sm:w-7"
                                     aria-label="Перетащить задачу"
@@ -847,9 +828,9 @@ function saveTasksOrder() {
                                     v-else
                                     type="button"
                                     class="home-title min-w-0 flex-1 select-none py-2 text-left text-[17px] font-semibold leading-snug line-clamp-3 sm:text-lg sm:line-clamp-2"
-                                    @click="startEditTask(task)"
-                                    @contextmenu.prevent="toggleTaskMenu(task)"
-                                    @pointerdown="startLongPress(task)"
+                                    @click="handleTaskTitleClick(task)"
+                                    @contextmenu.prevent="startEditTask(task)"
+                                    @pointerdown="startTaskTitleLongPress(task)"
                                     @pointerup="clearLongPress"
                                     @pointerleave="clearLongPress"
                                     @pointercancel="clearLongPress"
@@ -969,9 +950,9 @@ function saveTasksOrder() {
                                 v-else
                                 type="button"
                                 class="home-muted min-w-0 flex-1 select-none py-2 text-left text-[17px] font-medium leading-snug line-clamp-3 line-through decoration-[var(--home-focus)] sm:text-lg sm:line-clamp-2"
-                                @click="startEditTask(task)"
-                                @contextmenu.prevent="toggleTaskMenu(task)"
-                                @pointerdown="startLongPress(task)"
+                                @click="handleTaskTitleClick(task)"
+                                @contextmenu.prevent="startEditTask(task)"
+                                @pointerdown="startTaskTitleLongPress(task)"
                                 @pointerup="clearLongPress"
                                 @pointerleave="clearLongPress"
                                 @pointercancel="clearLongPress"
@@ -1024,32 +1005,20 @@ function saveTasksOrder() {
         </div>
 
         <nav class="home-bottom-nav fixed inset-x-0 bottom-0 z-30 px-3 pb-[max(env(safe-area-inset-bottom),12px)] pt-2 sm:hidden">
-            <div class="mx-auto grid max-w-xl grid-cols-3 items-end gap-2">
-                <button
-                    v-if="doneTasks.length > 0"
-                    type="button"
-                    class="home-bottom-side-button flex min-h-[50px] flex-col items-center justify-center rounded-2xl px-2 text-xs font-semibold"
-                    :disabled="!isOnline"
-                    @click="repeatDoneTasks"
-                >
-                    <span class="text-base leading-none">↺</span>
-                    <span class="mt-1">Повторить</span>
-                </button>
-
-                <div v-else />
-
+            <div class="mx-auto grid max-w-xl grid-cols-2 items-center gap-2">
                 <button
                     type="button"
-                    class="home-bottom-add-button mx-auto flex h-16 w-16 -translate-y-3 items-center justify-center rounded-[1.7rem] text-3xl font-medium leading-none"
+                    class="home-bottom-add-button flex min-h-[54px] items-center justify-center gap-2 rounded-2xl px-4 text-sm font-bold leading-none"
                     @click="handleBottomAddClick"
                     aria-label="Добавить задачу"
                 >
-                    <span aria-hidden="true" class="-mt-0.5 leading-none">＋</span>
+                    <span aria-hidden="true" class="text-2xl leading-none">＋</span>
+                    <span>Добавить</span>
                 </button>
 
                 <button
                     type="button"
-                    class="home-bottom-side-button flex min-h-[50px] flex-col items-center justify-center rounded-2xl px-2 text-xs font-semibold"
+                    class="home-bottom-side-button flex min-h-[54px] flex-col items-center justify-center rounded-2xl px-2 text-xs font-semibold"
                     @click="openListSettings"
                 >
                     <span class="text-base leading-none">⋯</span>
@@ -1057,6 +1026,106 @@ function saveTasksOrder() {
                 </button>
             </div>
         </nav>
+
+        <Transition
+            enter-active-class="transition duration-200 ease-out"
+            enter-from-class="translate-y-5 opacity-0 sm:translate-y-2"
+            enter-to-class="translate-y-0 opacity-100"
+            leave-active-class="transition duration-150 ease-in"
+            leave-from-class="translate-y-0 opacity-100"
+            leave-to-class="translate-y-5 opacity-0 sm:translate-y-2"
+        >
+            <div
+                v-if="showListSettings"
+                class="fixed inset-0 z-50 flex bg-black/10 px-3 pb-[max(env(safe-area-inset-bottom),12px)] pt-10 backdrop-blur-[2px] sm:items-center sm:justify-center sm:p-4"
+                @click="closeListSettings"
+            >
+                <form
+                    class="home-action-sheet mt-auto w-full max-w-xl rounded-[2rem] p-2 sm:mt-0 sm:p-3"
+                    @submit.prevent="updateList"
+                    @click.stop
+                >
+                    <div class="flex items-start justify-between gap-3 px-3 pb-2 pt-3">
+                        <div>
+                            <div class="home-subtle text-xs font-bold uppercase tracking-wide">
+                                Настройки
+                            </div>
+
+                            <div class="home-title mt-1 text-base font-bold">
+                                {{ list.title }}
+                            </div>
+                        </div>
+
+                        <button
+                            type="button"
+                            class="home-menu-button flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xl"
+                            aria-label="Закрыть настройки списка"
+                            @click="closeListSettings"
+                        >
+                            ×
+                        </button>
+                    </div>
+
+                    <div class="grid gap-3 px-2 pb-2 sm:grid-cols-[5rem_1fr]">
+                        <input
+                            v-model="listForm.emoji"
+                            class="home-input h-14 rounded-[1.35rem] text-center text-2xl"
+                            maxlength="4"
+                            aria-label="Эмодзи списка"
+                        >
+
+                        <input
+                            v-model="listForm.title"
+                            class="home-input h-14 min-w-0 rounded-[1.35rem] px-4 text-base font-semibold"
+                            placeholder="Название списка"
+                            aria-label="Название списка"
+                        >
+                    </div>
+
+                    <div
+                        v-if="listForm.errors.title"
+                        class="px-4 pb-2 text-sm text-red-500"
+                    >
+                        {{ listForm.errors.title }}
+                    </div>
+
+                    <button
+                        type="submit"
+                        class="home-action-sheet-item w-full rounded-[1.35rem] px-4 py-4 text-left text-base font-semibold"
+                        :disabled="listForm.processing || !isOnline"
+                    >
+                        {{ listForm.processing ? 'Сохраняю…' : 'Сохранить изменения' }}
+                    </button>
+
+                    <button
+                        v-if="!taskReorderMode"
+                        type="button"
+                        class="home-action-sheet-item w-full rounded-[1.35rem] px-4 py-4 text-left text-base font-semibold"
+                        @click="enableTaskReorderMode"
+                    >
+                        Сортировать задачи
+                    </button>
+
+                    <button
+                        type="button"
+                        class="home-action-sheet-item home-action-sheet-danger w-full rounded-[1.35rem] px-4 py-4 text-left text-base font-semibold"
+                        :disabled="listForm.processing || !isOnline"
+                        @click="archiveList"
+                    >
+                        Архивировать список
+                    </button>
+
+                    <button
+                        type="button"
+                        class="home-soft-button mt-2 w-full rounded-[1.35rem] px-4 py-4 text-base font-semibold"
+                        :disabled="listForm.processing"
+                        @click="closeListSettings"
+                    >
+                        Отмена
+                    </button>
+                </form>
+            </div>
+        </Transition>
 
         <Transition
             enter-active-class="transition duration-200 ease-out"
