@@ -80,7 +80,7 @@ const completedHint = computed(() => {
         return ''
     }
 
-    return `${completedByName.value} отметил(а) выполненным`
+    return `${completedByName.value} отметил(а)`
 })
 </script>
 

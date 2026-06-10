@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\FamilyList;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -134,5 +135,93 @@ class FamilyListController extends Controller
         }
 
         return back();
+    }
+
+    public function syncState(FamilyList $list): JsonResponse
+    {
+        $activeTasksCount = $list->tasks()
+            ->where('is_done', false)
+            ->count();
+
+        $doneTasksCount = $list->tasks()
+            ->where('is_done', true)
+            ->count();
+
+        $latestTaskUpdatedAt = $list->tasks()
+            ->max('updated_at');
+
+        $latestTaskCreatedAt = $list->tasks()
+            ->max('created_at');
+
+        $version = sha1(json_encode([
+            'list_id' => $list->id,
+            'list_updated_at' => optional($list->updated_at)->timestamp,
+            'active_tasks_count' => $activeTasksCount,
+            'done_tasks_count' => $doneTasksCount,
+            'latest_task_updated_at' => optional($latestTaskUpdatedAt)->timestamp,
+            'latest_task_created_at' => optional($latestTaskCreatedAt)->timestamp,
+        ]));
+
+        return response()->json([
+            'version' => $version,
+        ]);
+    }
+
+    public function indexSyncState(): JsonResponse
+    {
+        $latestListUpdatedAt = FamilyList::query()
+            ->whereNull('archived_at')
+            ->max('updated_at');
+
+        $latestListCreatedAt = FamilyList::query()
+            ->whereNull('archived_at')
+            ->max('created_at');
+
+        $latestTaskUpdatedAt = FamilyList::query()
+            ->whereNull('archived_at')
+            ->join('tasks', 'tasks.family_list_id', '=', 'family_lists.id')
+            ->max('tasks.updated_at');
+
+        $listsCount = FamilyList::query()
+            ->whereNull('archived_at')
+            ->count();
+
+        $activeTasksCount = FamilyList::query()
+            ->whereNull('archived_at')
+            ->join('tasks', 'tasks.family_list_id', '=', 'family_lists.id')
+            ->where('tasks.is_done', false)
+            ->count();
+
+        $doneTasksCount = FamilyList::query()
+            ->whereNull('archived_at')
+            ->join('tasks', 'tasks.family_list_id', '=', 'family_lists.id')
+            ->where('tasks.is_done', true)
+            ->count();
+
+        $sortFingerprint = FamilyList::query()
+            ->whereNull('archived_at')
+            ->orderBy('sort_order')
+            ->orderByDesc('created_at')
+            ->get(['id', 'sort_order', 'updated_at'])
+            ->map(fn (FamilyList $list) => [
+                'id' => $list->id,
+                'sort_order' => $list->sort_order,
+                'updated_at' => optional($list->updated_at)->timestamp,
+            ])
+            ->values();
+
+        $version = sha1(json_encode([
+            'lists_count' => $listsCount,
+            'active_tasks_count' => $activeTasksCount,
+            'done_tasks_count' => $doneTasksCount,
+            'latest_list_updated_at' => optional($latestListUpdatedAt)->timestamp,
+            'latest_list_created_at' => optional($latestListCreatedAt)->timestamp,
+            'latest_task_updated_at' => optional($latestTaskUpdatedAt)->timestamp,
+            'sort' => $sortFingerprint,
+        ]));
+
+        return response()->json([
+            'version' => $version,
+        ]);
     }
 }

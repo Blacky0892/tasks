@@ -43,7 +43,8 @@ HTML, 200)->header('Content-Type', 'text/html; charset=UTF-8');
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/', [FamilyListController::class, 'index'])->name('home');
-
+    Route::get('/lists-sync-state', [FamilyListController::class, 'indexSyncState'])
+        ->name('lists.sync-state');
     Route::post('/lists', [FamilyListController::class, 'store'])->name('lists.store');
     Route::get('/lists/{list}', [FamilyListController::class, 'show'])->name('lists.show');
     Route::patch('/lists/reorder', [FamilyListController::class, 'reorder'])
@@ -52,10 +53,11 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/lists/{list}', [FamilyListController::class, 'destroy'])->name('lists.destroy');
     Route::post('/lists/{list}/repeat-done-tasks', [FamilyListController::class, 'repeatDoneTasks'])
         ->name('lists.repeat-done-tasks');
+    Route::get('/lists/{list}/sync-state', [FamilyListController::class, 'syncState'])
+        ->name('lists.sync-state');
 
     Route::patch('/lists/{list}/tasks/reorder', [TaskController::class, 'reorder'])
         ->name('tasks.reorder');
-
     Route::post('/lists/{list}/tasks', [TaskController::class, 'store'])->name('tasks.store');
     Route::patch('/tasks/{task}', [TaskController::class, 'update'])->name('tasks.update');
     Route::post('/tasks/{task}/toggle', [TaskController::class, 'toggle'])->name('tasks.toggle');

@@ -52,6 +52,9 @@ const deleteTimers = new Map()
 const editingInput = ref(null)
 const longPressTimer = ref(null)
 const longPressTriggered = ref(false)
+const remoteVersion = ref(null)
+const isCheckingRemoteChanges = ref(false)
+let remoteSyncTimer = null
 
 const form = useForm({
     title: '',
@@ -115,13 +118,28 @@ onMounted(() => {
         syncOfflineTasks()
     }
 
+    checkRemoteChanges()
+
+    remoteSyncTimer = window.setInterval(() => {
+        if (document.visibilityState === 'visible') {
+            checkRemoteChanges()
+        }
+    }, 5000)
+
     window.addEventListener('online', handleOnline)
     window.addEventListener('pwa-update-available', handlePwaUpdateAvailable)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 })
 
 onUnmounted(() => {
+    if (remoteSyncTimer) {
+        window.clearInterval(remoteSyncTimer)
+        remoteSyncTimer = null
+    }
+
     window.removeEventListener('online', handleOnline)
     window.removeEventListener('pwa-update-available', handlePwaUpdateAvailable)
+    document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 
 watch(
@@ -487,6 +505,7 @@ function archiveList() {
 
 function handleOnline() {
     syncOfflineTasks()
+    checkRemoteChanges()
 }
 
 function handlePwaUpdateAvailable() {
@@ -495,6 +514,69 @@ function handlePwaUpdateAvailable() {
 
 function handleBottomAddClick() {
     focusAddTaskInput()
+}
+
+async function checkRemoteChanges() {
+    if (!isOnline.value) {
+        return
+    }
+
+    if (isCheckingRemoteChanges.value) {
+        return
+    }
+
+    if (form.processing || listForm.processing || isSyncingOfflineTasks.value) {
+        return
+    }
+
+    if (editingTaskId.value || showListSettings.value || taskReorderMode.value) {
+        return
+    }
+
+    isCheckingRemoteChanges.value = true
+
+    try {
+        const response = await fetch(route('lists.sync-state', props.list.id), {
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        })
+
+        if (!response.ok) {
+            return
+        }
+
+        const data = await response.json()
+
+        if (!remoteVersion.value) {
+            remoteVersion.value = data.version
+            return
+        }
+
+        if (remoteVersion.value === data.version) {
+            return
+        }
+
+        remoteVersion.value = data.version
+        markHomeNeedsRefresh()
+
+        router.reload({
+            only: ['list'],
+            preserveScroll: true,
+            preserveState: true,
+        })
+    } catch {
+        // Молча пропускаем: PWA не должна пугать пользователя временными сетевыми ошибками.
+    } finally {
+        isCheckingRemoteChanges.value = false
+    }
+}
+
+function handleVisibilityChange() {
+    if (document.visibilityState === 'visible') {
+        checkRemoteChanges()
+    }
 }
 
 syncLocalTasks(props.list.tasks)

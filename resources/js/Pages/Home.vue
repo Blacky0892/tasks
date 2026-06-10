@@ -64,6 +64,9 @@ const updateAvailable = ref(false)
 const canInstallApp = ref(false)
 const installPrompt = ref(null)
 const isStandaloneApp = ref(false)
+const remoteListsVersion = ref(null)
+const isCheckingRemoteListsChanges = ref(false)
+let listsSyncTimer = null
 
 function detectStandaloneApp() {
     return window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true
@@ -127,6 +130,72 @@ function refreshAfterBackNavigation() {
     })
 }
 
+async function checkRemoteListsChanges() {
+    if (!isOnline.value) {
+        return
+    }
+
+    if (isCheckingRemoteListsChanges.value) {
+        return
+    }
+
+    if (form.processing) {
+        return
+    }
+
+    if (showCreateForm.value || isCreateIconPickerOpen.value || listReorderMode.value) {
+        return
+    }
+
+    isCheckingRemoteListsChanges.value = true
+
+    try {
+        const response = await fetch(route('lists.sync-state'), {
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        })
+
+        if (!response.ok) {
+            return
+        }
+
+        const data = await response.json()
+
+        if (!remoteListsVersion.value) {
+            remoteListsVersion.value = data.version
+            return
+        }
+
+        if (remoteListsVersion.value === data.version) {
+            return
+        }
+
+        remoteListsVersion.value = data.version
+
+        router.reload({
+            only: ['lists'],
+            preserveScroll: true,
+            preserveState: true,
+        })
+    } catch {
+        // Ничего не показываем пользователю: временная ошибка сети для PWA не критична.
+    } finally {
+        isCheckingRemoteListsChanges.value = false
+    }
+}
+
+function handleVisibilityChange() {
+    if (document.visibilityState === 'visible') {
+        checkRemoteListsChanges()
+    }
+}
+
+function handleOnline() {
+    checkRemoteListsChanges()
+}
+
 function handlePageShow() {
     refreshAfterBackNavigation()
 }
@@ -140,8 +209,17 @@ onMounted(() => {
     }
 
     refreshAfterBackNavigation()
+    checkRemoteListsChanges()
+
+    listsSyncTimer = window.setInterval(() => {
+        if (document.visibilityState === 'visible') {
+            checkRemoteListsChanges()
+        }
+    }, 5000)
 
     window.addEventListener('pageshow', handlePageShow)
+    window.addEventListener('online', handleOnline)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     window.addEventListener('pwa-update-available', handlePwaUpdateAvailable)
     window.addEventListener('pwa-install-available', handleInstallAvailable)
@@ -149,6 +227,15 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+    if (listsSyncTimer) {
+        window.clearInterval(listsSyncTimer)
+        listsSyncTimer = null
+    }
+
+    window.removeEventListener('pageshow', handlePageShow)
+    window.removeEventListener('online', handleOnline)
+    document.removeEventListener('visibilitychange', handleVisibilityChange)
+
     window.removeEventListener('pwa-update-available', handlePwaUpdateAvailable)
     window.removeEventListener('pwa-install-available', handleInstallAvailable)
     window.removeEventListener('pwa-app-installed', handleAppInstalled)
@@ -245,10 +332,12 @@ function createList() {
     form.post(route('lists.store'), {
         preserveScroll: true,
         onSuccess: () => {
+            remoteListsVersion.value = null
             form.reset()
             form.emoji = '📝'
             showCreateForm.value = false
             isCreateIconPickerOpen.value = false
+            checkRemoteListsChanges()
         },
     })
 }
@@ -294,6 +383,10 @@ function saveListsOrder() {
     }, {
         preserveScroll: true,
         preserveState: true,
+        onSuccess: () => {
+            remoteListsVersion.value = null
+            checkRemoteListsChanges()
+        },
     })
 }
 </script>
