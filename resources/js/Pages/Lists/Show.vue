@@ -432,6 +432,10 @@ function disableTaskReorderMode() {
     taskReorderMode.value = false
 }
 
+function toggleTaskReorderMode() {
+    taskReorderMode.value = !taskReorderMode.value
+}
+
 function handleTaskTitleClick(task) {
     if (longPressTriggered.value) {
         longPressTriggered.value = false
@@ -519,8 +523,16 @@ function saveTasksOrder() {
                     </div>
 
                     <div class="relative z-10 mt-4 flex items-center gap-3">
-                        <div class="home-avatar-card home-list-avatar flex h-16 w-16 shrink-0 items-center justify-center rounded-[1.6rem] text-3xl">
+                        <div class="home-avatar-card home-list-avatar flex h-16 w-16 shrink-0 items-center justify-center rounded-[1.6rem] text-3xl" :class="taskReorderMode ? 'ring-4 ring-white/70' : ''">
+                            <button
+                                type="button"
+                                class="home-avatar-card home-list-avatar flex h-16 w-16 shrink-0 items-center justify-center rounded-[1.6rem] text-3xl"
+
+                                :aria-label="taskReorderMode ? 'Выключить сортировку задач' : 'Включить сортировку задач'"
+                                @click="toggleTaskReorderMode"
+                            >
                             {{ list.emoji }}
+                            </button>
                         </div>
 
                         <div class="min-w-0 flex-1">
@@ -1098,15 +1110,6 @@ function saveTasksOrder() {
                     </button>
 
                     <button
-                        v-if="!taskReorderMode"
-                        type="button"
-                        class="home-action-sheet-item w-full rounded-[1.35rem] px-4 py-4 text-left text-base font-semibold"
-                        @click="enableTaskReorderMode"
-                    >
-                        Сортировать задачи
-                    </button>
-
-                    <button
                         type="button"
                         class="home-action-sheet-item home-action-sheet-danger w-full rounded-[1.35rem] px-4 py-4 text-left text-base font-semibold"
                         :disabled="listForm.processing || !isOnline"
@@ -1293,10 +1296,10 @@ function saveTasksOrder() {
 }
 
 .home-list-hero-orb-left {
-    left: -24px;
-    top: 54px;
-    width: 92px;
-    height: 92px;
+    left: -8px;
+    top: 58px;
+    width: 85px;
+    height: 85px;
     background: rgba(211, 229, 190, 0.55);
 }
 
