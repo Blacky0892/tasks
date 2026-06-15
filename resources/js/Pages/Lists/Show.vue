@@ -55,6 +55,7 @@ const longPressTimer = ref(null)
 const longPressTriggered = ref(false)
 const remoteVersion = ref(null)
 const isCheckingRemoteChanges = ref(false)
+const isClearingDoneTasks = ref(false)
 let remoteSyncTimer = null
 
 const form = useForm({
@@ -334,6 +335,33 @@ function removePendingDelete(taskId) {
     pendingDeleteIds.value = pendingDeleteIds.value.filter(id => id !== taskId)
     pendingDeleteTasks.value = pendingDeleteTasks.value.filter(task => task.id !== taskId)
     deleteTimers.delete(taskId)
+}
+
+// Удаляет все выполненные задачи текущего списка после подтверждения.
+function clearDoneTasks() {
+    if (!isOnline.value || isClearingDoneTasks.value || doneTasks.value.length === 0) {
+        return
+    }
+
+    if (!confirm('Очистить все выполненные задачи? Отменить это действие не получится.')) {
+        return
+    }
+
+    openedTaskMenuId.value = null
+    markHomeNeedsRefresh()
+    isClearingDoneTasks.value = true
+
+    router.delete(route('tasks.clear-done', props.list.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            vibrateLight()
+            showDoneTasks.value = false
+            doneTasksLimit.value = 3
+        },
+        onFinish: () => {
+            isClearingDoneTasks.value = false
+        },
+    })
 }
 
 // Task editing
@@ -845,6 +873,8 @@ syncLocalTasks(props.list.tasks)
                 :editing-task-id="editingTaskId"
                 :editing-title="editingTitle"
                 :opened-task-menu-id="openedTaskMenuId"
+                :can-clear-done="isOnline && doneTasks.length > 0"
+                :is-clearing-done="isClearingDoneTasks"
                 @toggle-show="showDoneTasks = !showDoneTasks"
                 @show-more="showMoreDoneTasks"
                 @update:editing-title="editingTitle = $event"
@@ -856,6 +886,7 @@ syncLocalTasks(props.list.tasks)
                 @toggle-menu="toggleTaskMenu"
                 @start-long-press="startTaskTitleLongPress"
                 @clear-long-press="clearLongPress"
+                @clear-done="clearDoneTasks"
             />
         </div>
 

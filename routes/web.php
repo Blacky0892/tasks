@@ -4,10 +4,8 @@ use App\Http\Controllers\FamilyListController;
 use App\Http\Controllers\MagicLoginController;
 use App\Http\Controllers\TaskController;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
 Route::get('/magic/{token}', MagicLoginController::class)->name('magic.login');
-
 
 Route::get('/offline', function () {
     return response(<<<'HTML'
@@ -40,7 +38,6 @@ Route::get('/offline', function () {
 HTML, 200)->header('Content-Type', 'text/html; charset=UTF-8');
 })->name('offline');
 
-
 Route::middleware(['auth'])->group(function () {
     Route::get('/', [FamilyListController::class, 'index'])->name('home');
     Route::get('/lists-sync-state', [FamilyListController::class, 'indexSyncState'])
@@ -59,6 +56,8 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('/lists/{list}/tasks/reorder', [TaskController::class, 'reorder'])
         ->name('tasks.reorder');
     Route::post('/lists/{list}/tasks', [TaskController::class, 'store'])->name('tasks.store');
+    Route::delete('/lists/{list}/tasks/done', [TaskController::class, 'clearDone'])
+        ->name('tasks.clear-done');
     Route::patch('/tasks/{task}', [TaskController::class, 'update'])->name('tasks.update');
     Route::post('/tasks/{task}/toggle', [TaskController::class, 'toggle'])->name('tasks.toggle');
     Route::delete('/tasks/{task}', [TaskController::class, 'destroy'])->name('tasks.destroy');

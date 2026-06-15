@@ -33,6 +33,14 @@ defineProps({
         type: [Number, String, null],
         default: null,
     },
+    canClearDone: {
+        type: Boolean,
+        default: true,
+    },
+    isClearingDone: {
+        type: Boolean,
+        default: false,
+    },
 })
 
 // Объявляет события, которые секция пробрасывает родителю:
@@ -49,6 +57,7 @@ defineEmits([
     'toggle-menu',
     'start-long-press',
     'clear-long-press',
+    'clear-done',
 ])
 </script>
 
@@ -57,19 +66,30 @@ defineEmits([
         v-if="tasks.length > 0"
         class="mt-8 pb-6"
     >
-        <button
-            type="button"
-            class="home-done-section-toggle mb-3 flex min-h-12 w-full items-center justify-between rounded-[1.5rem] px-4 py-3 text-left text-sm font-bold"
-            @click="$emit('toggle-show')"
-        >
-            <span>
-                {{ show ? 'Свернуть выполненные' : 'Выполнено' }} · {{ tasks.length }}
-            </span>
+        <div class="mb-3 flex gap-2">
+            <button
+                type="button"
+                class="home-done-section-toggle flex min-h-12 flex-1 items-center justify-between rounded-[1.5rem] px-4 py-3 text-left text-sm font-bold"
+                @click="$emit('toggle-show')"
+            >
+                <span>
+                    {{ show ? 'Свернуть выполненные' : 'Выполнено' }} · {{ tasks.length }}
+                </span>
 
-            <span class="text-base leading-none">
-                {{ show ? '⌃' : '⌄' }}
-            </span>
-        </button>
+                <span class="text-base leading-none">
+                    {{ show ? '⌃' : '⌄' }}
+                </span>
+            </button>
+
+            <button
+                type="button"
+                class="home-soft-button min-h-12 shrink-0 rounded-[1.5rem] px-4 py-3 text-sm font-bold disabled:opacity-50"
+                :disabled="!canClearDone || isClearingDone"
+                @click="$emit('clear-done')"
+            >
+                {{ isClearingDone ? 'Очищаю…' : 'Очистить' }}
+            </button>
+        </div>
 
         <TransitionGroup
             name="task-list"

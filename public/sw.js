@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-06-10-1'
+const APP_VERSION = '2026-06-15-1'
 const CACHE_NAME = `nash-dom-${APP_VERSION}`
 const OFFLINE_URL = '/offline'
 
