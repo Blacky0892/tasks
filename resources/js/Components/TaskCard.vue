@@ -288,8 +288,8 @@ function updateNewAttachments(files) {
                 />
 
                 <div class="grid min-w-0 gap-2 rounded-2xl bg-white/35 p-2 ring-1 ring-[var(--home-border)] md:grid-cols-3">
-                    <label class="home-muted px-1 text-xs font-bold uppercase tracking-wide">
-                        Срок
+                    <label class="home-muted px-1 text-xs font-bold uppercase tracking-wide md:flex md:items-center md:gap-2 md:whitespace-nowrap">
+                        <span>Срок</span>
                         <input
                             :value="editingDueAt"
                             class="home-input mt-1 w-full rounded-xl px-3 py-2 text-sm normal-case tracking-normal"
@@ -306,8 +306,8 @@ function updateNewAttachments(files) {
                         </button>
                     </label>
 
-                    <label class="home-muted px-1 text-xs font-bold uppercase tracking-wide">
-                        Напомнить
+                    <label class="home-muted px-1 text-xs font-bold uppercase tracking-wide md:flex md:items-center md:gap-2 md:whitespace-nowrap">
+                        <span>Напомнить</span>
                         <input
                             :value="editingRemindAt"
                             class="home-input mt-1 w-full rounded-xl px-3 py-2 text-sm normal-case tracking-normal"
@@ -435,11 +435,11 @@ function updateNewAttachments(files) {
 
                 <span
                     v-if="dueLabel"
-                    class="mt-1 inline-flex max-w-full items-center rounded-full px-2.5 py-1 text-[11px] font-bold ring-1"
+                    class="mt-1 inline-flex max-w-full items-center whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-bold ring-1"
                     :class="isOverdue ? 'bg-red-50 text-red-600 ring-red-200' : 'bg-white/60 text-[var(--home-text-subtle)] ring-[var(--home-border)]'"
                     :title="isOverdue ? 'Срок просрочен' : 'Срок задачи'"
                 >
-                    <span class="truncate">{{ isOverdue ? 'Просрочено' : 'Срок' }} · {{ dueLabel }}</span>
+                    <span class="truncate sm:whitespace-nowrap">{{ isOverdue ? 'Просрочено' : 'Срок' }} · {{ dueLabel }}</span>
                 </span>
 
                 <span

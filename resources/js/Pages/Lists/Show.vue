@@ -324,8 +324,6 @@ function updateComposerAttachments(files) {
 }
 
 const taskTimeZone = 'Europe/Moscow'
-const taskTimeZoneOffsetMinutes = 3 * 60
-
 function toLocalDateTimeInput(value) {
     if (!value) {
         return ''
@@ -353,21 +351,6 @@ function toLocalDateTimeInput(value) {
     return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`
 }
 
-function fromMoscowDateTimeInput(value) {
-    if (!value) {
-        return null
-    }
-
-    const [datePart, timePart] = value.split('T')
-    const [year, month, day] = datePart.split('-').map(Number)
-    const [hour, minute] = timePart.split(':').map(Number)
-
-    if ([year, month, day, hour, minute].some(Number.isNaN)) {
-        return null
-    }
-
-    return new Date(Date.UTC(year, month - 1, day, hour, minute) - taskTimeZoneOffsetMinutes * 60000).toISOString()
-}
 
 function createTask() {
     const title = form.title.trim()
@@ -397,11 +380,7 @@ function createTask() {
 
     markHomeNeedsRefresh()
 
-    form.transform(data => ({
-        ...data,
-        due_at: fromMoscowDateTimeInput(data.due_at),
-        remind_at: fromMoscowDateTimeInput(data.remind_at),
-    })).post(route('tasks.store', props.list.id), {
+    form.post(route('tasks.store', props.list.id), {
         preserveScroll: true,
         onSuccess: () => {
             vibrateLight()
@@ -414,7 +393,6 @@ function createTask() {
                 remind_at: '',
                 priority: 'normal',
             })
-            form.transform(data => data)
             form.clearErrors()
 
             if (shouldCloseAfterCreate) {
@@ -646,8 +624,8 @@ function saveEditTask(task) {
         note,
         kept_attachments: editingAttachments.value,
         attachments: editingNewAttachments.value,
-        due_at: fromMoscowDateTimeInput(editingDueAt.value),
-        remind_at: fromMoscowDateTimeInput(editingRemindAt.value),
+        due_at: editingDueAt.value || null,
+        remind_at: editingRemindAt.value || null,
         priority: editingPriority.value,
     }, {
         preserveScroll: true,

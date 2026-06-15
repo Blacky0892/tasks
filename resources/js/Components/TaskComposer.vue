@@ -184,14 +184,14 @@ function toggleDetails() {
                     class="px-1 pt-2"
                 >
                     <div class="grid gap-2 sm:grid-cols-3">
-                        <label class="home-muted block px-2 text-xs font-bold uppercase tracking-wide" for="task-due-at">
-                            Срок
+                        <label class="home-muted block px-2 text-xs font-bold uppercase tracking-wide md:flex md:items-center md:gap-2 md:whitespace-nowrap" for="task-due-at">
+                            <span>Срок</span>
                             <input id="task-due-at" v-model="dueAtModel" class="home-input mt-1 w-full rounded-[1.2rem] px-3 py-2 text-sm normal-case tracking-normal" type="datetime-local" />
                             <button v-if="dueAtModel" type="button" class="mt-1 text-xs font-bold normal-case tracking-normal text-[var(--home-text-subtle)]" @click="dueAtModel = ''">Убрать срок</button>
                         </label>
 
-                        <label class="home-muted block px-2 text-xs font-bold uppercase tracking-wide" for="task-remind-at">
-                            Напомнить
+                        <label class="home-muted block px-2 text-xs font-bold uppercase tracking-wide md:flex md:items-center md:gap-2 md:whitespace-nowrap" for="task-remind-at">
+                            <span>Напомнить</span>
                             <input id="task-remind-at" v-model="remindAtModel" class="home-input mt-1 w-full rounded-[1.2rem] px-3 py-2 text-sm normal-case tracking-normal" type="datetime-local" />
                             <button v-if="remindAtModel" type="button" class="mt-1 text-xs font-bold normal-case tracking-normal text-[var(--home-text-subtle)]" @click="remindAtModel = ''">Убрать напоминание</button>
                         </label>
