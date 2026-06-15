@@ -87,7 +87,6 @@ const pendingDeleteTasks = ref([])
 const deleteTimers = new Map()
 const editingInput = ref(null)
 const longPressTimer = ref(null)
-const longPressTriggered = ref(false)
 const remoteVersion = ref(null)
 const isCheckingRemoteChanges = ref(false)
 const isClearingDoneTasks = ref(false)
@@ -324,6 +323,9 @@ function updateComposerAttachments(files) {
     form.attachments = files
 }
 
+const taskTimeZone = 'Europe/Moscow'
+const taskTimeZoneOffsetMinutes = 3 * 60
+
 function toLocalDateTimeInput(value) {
     if (!value) {
         return ''
@@ -335,8 +337,36 @@ function toLocalDateTimeInput(value) {
         return ''
     }
 
-    const offset = date.getTimezoneOffset() * 60000
-    return new Date(date.getTime() - offset).toISOString().slice(0, 16)
+    const parts = new Intl.DateTimeFormat('ru-RU', {
+        timeZone: taskTimeZone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23',
+    }).formatToParts(date).reduce((values, part) => {
+        values[part.type] = part.value
+        return values
+    }, {})
+
+    return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`
+}
+
+function fromMoscowDateTimeInput(value) {
+    if (!value) {
+        return null
+    }
+
+    const [datePart, timePart] = value.split('T')
+    const [year, month, day] = datePart.split('-').map(Number)
+    const [hour, minute] = timePart.split(':').map(Number)
+
+    if ([year, month, day, hour, minute].some(Number.isNaN)) {
+        return null
+    }
+
+    return new Date(Date.UTC(year, month - 1, day, hour, minute) - taskTimeZoneOffsetMinutes * 60000).toISOString()
 }
 
 function createTask() {
@@ -367,11 +397,24 @@ function createTask() {
 
     markHomeNeedsRefresh()
 
-    form.post(route('tasks.store', props.list.id), {
+    form.transform(data => ({
+        ...data,
+        due_at: fromMoscowDateTimeInput(data.due_at),
+        remind_at: fromMoscowDateTimeInput(data.remind_at),
+    })).post(route('tasks.store', props.list.id), {
         preserveScroll: true,
         onSuccess: () => {
             vibrateLight()
             form.reset()
+            form.defaults({
+                title: '',
+                note: '',
+                attachments: [],
+                due_at: '',
+                remind_at: '',
+                priority: 'normal',
+            })
+            form.transform(data => data)
             form.clearErrors()
 
             if (shouldCloseAfterCreate) {
@@ -597,13 +640,14 @@ function saveEditTask(task) {
 
     markHomeNeedsRefresh()
 
-    router.patch(route('tasks.update', task.id), {
+    router.post(route('tasks.update', task.id), {
+        _method: 'patch',
         title,
         note,
         kept_attachments: editingAttachments.value,
         attachments: editingNewAttachments.value,
-        due_at: editingDueAt.value || null,
-        remind_at: editingRemindAt.value || null,
+        due_at: fromMoscowDateTimeInput(editingDueAt.value),
+        remind_at: fromMoscowDateTimeInput(editingRemindAt.value),
         priority: editingPriority.value,
     }, {
         preserveScroll: true,
@@ -669,27 +713,10 @@ function saveTasksOrder() {
 
 // Long press
 
-// Обрабатывает обычный клик по задаче: учитывает долгий тап и режим сортировки.
-function handleTaskTitleClick(task) {
-    if (longPressTriggered.value) {
-        longPressTriggered.value = false
-        return
-    }
-
-    if (taskReorderMode.value || isSearching.value) {
-        return
-    }
-
-    toggleTask(task)
-}
-
 // Запускает таймер долгого нажатия, чтобы открыть редактирование задачи.
 function startTaskTitleLongPress(task) {
     clearLongPress()
-    longPressTriggered.value = false
-
     longPressTimer.value = window.setTimeout(() => {
-        longPressTriggered.value = true
         startEditTask(task)
         vibrateLight()
     }, 500)
@@ -1119,7 +1146,7 @@ syncLocalTasks(props.list.tasks)
                             @update:editing-due-at="editingDueAt = $event"
                             @update:editing-remind-at="editingRemindAt = $event"
                             @update:editing-priority="editingPriority = $event"
-                            @toggle="handleTaskTitleClick"
+                            @toggle="toggleTask"
                             @edit="startEditTask"
                             @save-edit="saveEditTask"
                             @cancel-edit="cancelEditTask"
@@ -1161,7 +1188,7 @@ syncLocalTasks(props.list.tasks)
                 @show-more="showMoreDoneTasks"
                 @update:editing-title="editingTitle = $event"
                 @update:editing-note="editingNote = $event"
-                @toggle-task="handleTaskTitleClick"
+                @toggle-task="toggleTask"
                 @update:editing-attachments="editingAttachments = $event"
                 @update:editing-new-attachments="editingNewAttachments = $event"
                 @update:editing-due-at="editingDueAt = $event"

@@ -174,6 +174,7 @@ const dueLabel = computed(() => {
     }
 
     return new Intl.DateTimeFormat('ru-RU', {
+        timeZone: 'Europe/Moscow',
         day: 'numeric',
         month: 'short',
         hour: '2-digit',
@@ -417,7 +418,6 @@ function updateNewAttachments(files) {
                 type="button"
                 class="min-w-0 flex-1 select-none py-2 text-left text-[17px] leading-snug sm:text-lg"
                 :class="titleClass"
-                @click="emit('toggle', task)"
                 @contextmenu.prevent="emit('edit', task)"
                 @pointerdown="emit('start-long-press', task)"
                 @pointerup="emit('clear-long-press')"
