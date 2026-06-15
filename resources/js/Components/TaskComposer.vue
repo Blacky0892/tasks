@@ -12,6 +12,21 @@ const noteModel = defineModel('note', {
     default: '',
 })
 
+const dueAtModel = defineModel('dueAt', {
+    type: String,
+    default: '',
+})
+
+const remindAtModel = defineModel('remindAt', {
+    type: String,
+    default: '',
+})
+
+const priorityModel = defineModel('priority', {
+    type: String,
+    default: 'normal',
+})
+
 // Описывает состояние формы создания задачи:
 // видимость, отправку, ошибки и состояние локальной offline-очереди.
 defineProps({
@@ -68,6 +83,31 @@ watch(
 defineExpose({
     focus: focusTextarea,
 })
+
+function toLocalDateTime(date, hour = 9) {
+    const value = new Date(date)
+    value.setHours(hour, 0, 0, 0)
+
+    const offset = value.getTimezoneOffset() * 60000
+    return new Date(value.getTime() - offset).toISOString().slice(0, 16)
+}
+
+function applyDueChip(type) {
+    const date = new Date()
+
+    if (type === 'tomorrow') {
+        date.setDate(date.getDate() + 1)
+    }
+
+    if (type === 'weekend') {
+        const day = date.getDay()
+        const daysUntilSaturday = (6 - day + 7) % 7 || 7
+        date.setDate(date.getDate() + daysUntilSaturday)
+    }
+
+    dueAtModel.value = toLocalDateTime(date, 18)
+    remindAtModel.value = toLocalDateTime(date, 9)
+}
 
 function toggleDetails() {
     detailsOpen.value = !detailsOpen.value
@@ -152,6 +192,13 @@ function toggleDetails() {
                 </button>
             </div>
 
+            <div class="mt-2 flex flex-wrap gap-2 px-1">
+                <button type="button" class="home-soft-button rounded-full px-3 py-2 text-xs font-bold" @click="applyDueChip('today')">Сегодня</button>
+                <button type="button" class="home-soft-button rounded-full px-3 py-2 text-xs font-bold" @click="applyDueChip('tomorrow')">Завтра</button>
+                <button type="button" class="home-soft-button rounded-full px-3 py-2 text-xs font-bold" @click="applyDueChip('weekend')">На выходных</button>
+                <button type="button" class="home-soft-button rounded-full px-3 py-2 text-xs font-bold" @click="detailsOpen = true">Выбрать дату</button>
+            </div>
+
             <Transition
                 enter-active-class="transition duration-150 ease-out"
                 enter-from-class="-translate-y-1 opacity-0"
@@ -164,7 +211,28 @@ function toggleDetails() {
                     v-if="detailsOpen"
                     class="px-1 pt-2"
                 >
-                    <label class="home-muted mb-1 block px-2 text-xs font-bold uppercase tracking-wide" for="task-note">
+                    <div class="grid gap-2 sm:grid-cols-3">
+                        <label class="home-muted block px-2 text-xs font-bold uppercase tracking-wide" for="task-due-at">
+                            Срок
+                            <input id="task-due-at" v-model="dueAtModel" class="home-input mt-1 w-full rounded-[1.2rem] px-3 py-2 text-sm normal-case tracking-normal" type="datetime-local" />
+                        </label>
+
+                        <label class="home-muted block px-2 text-xs font-bold uppercase tracking-wide" for="task-remind-at">
+                            Напомнить
+                            <input id="task-remind-at" v-model="remindAtModel" class="home-input mt-1 w-full rounded-[1.2rem] px-3 py-2 text-sm normal-case tracking-normal" type="datetime-local" />
+                        </label>
+
+                        <label class="home-muted block px-2 text-xs font-bold uppercase tracking-wide" for="task-priority">
+                            Приоритет
+                            <select id="task-priority" v-model="priorityModel" class="home-input mt-1 w-full rounded-[1.2rem] px-3 py-2 text-sm normal-case tracking-normal">
+                                <option value="low">Низкий</option>
+                                <option value="normal">Обычный</option>
+                                <option value="high">Высокий</option>
+                            </select>
+                        </label>
+                    </div>
+
+                    <label class="home-muted mb-1 mt-3 block px-2 text-xs font-bold uppercase tracking-wide" for="task-note">
                         Заметка
                     </label>
 

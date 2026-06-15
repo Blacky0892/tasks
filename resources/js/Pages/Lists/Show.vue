@@ -97,6 +97,9 @@ const form = useForm({
     title: '',
     note: '',
     attachments: [],
+    due_at: '',
+    remind_at: '',
+    priority: 'normal',
 })
 
 const listForm = useForm({
@@ -954,6 +957,9 @@ syncLocalTasks(props.list.tasks)
                 ref="taskComposer"
                 v-model="form.title"
                 v-model:note="form.note"
+                v-model:due-at="form.due_at"
+                v-model:remind-at="form.remind_at"
+                v-model:priority="form.priority"
                 :show="showTaskComposer"
                 :processing="form.processing"
                 :error="form.errors.title"

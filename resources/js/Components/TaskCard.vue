@@ -151,6 +151,22 @@ const titleSegments = computed(() => {
     return segments
 })
 
+const dueDate = computed(() => props.task.due_at ? new Date(props.task.due_at) : null)
+const isOverdue = computed(() => props.variant !== 'done' && dueDate.value && dueDate.value < new Date())
+const dueLabel = computed(() => {
+    if (!dueDate.value) {
+        return ''
+    }
+
+    return new Intl.DateTimeFormat('ru-RU', {
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+    }).format(dueDate.value)
+})
+const priorityLabel = computed(() => ({ low: 'Низкий', normal: 'Обычный', high: 'Высокий' }[props.task.priority] ?? 'Обычный'))
+
 const hasNote = computed(() => Boolean(props.task.note?.trim()))
 const attachments = computed(() => props.task.attachments ?? [])
 const hasAttachments = computed(() => attachments.value.length > 0)
@@ -348,6 +364,23 @@ function updateNewAttachments(files) {
                             class="rounded-md bg-yellow-200/80 px-0.5 text-inherit"
                         >{{ segment.value }}</mark><span v-else>{{ segment.value }}</span>
                     </template>
+                </span>
+
+                <span
+                    v-if="dueLabel"
+                    class="mt-1 inline-flex max-w-full items-center rounded-full px-2.5 py-1 text-[11px] font-bold ring-1"
+                    :class="isOverdue ? 'bg-red-50 text-red-600 ring-red-200' : 'bg-white/60 text-[var(--home-text-subtle)] ring-[var(--home-border)]'"
+                    :title="isOverdue ? 'Срок просрочен' : 'Срок задачи'"
+                >
+                    <span class="truncate">{{ isOverdue ? 'Просрочено' : 'Срок' }} · {{ dueLabel }}</span>
+                </span>
+
+                <span
+                    v-if="task.priority === 'high'"
+                    class="ml-1 mt-1 inline-flex max-w-full items-center rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700 ring-1 ring-amber-200"
+                    :title="`Приоритет: ${priorityLabel}`"
+                >
+                    Высокий приоритет
                 </span>
 
                 <span
