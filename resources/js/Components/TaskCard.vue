@@ -287,8 +287,8 @@ function updateNewAttachments(files) {
                     @keydown.esc.prevent="emit('cancel-edit')"
                 />
 
-                <div class="grid min-w-0 gap-2 rounded-2xl bg-white/35 p-2 ring-1 ring-[var(--home-border)] md:grid-cols-3">
-                    <label class="home-muted px-1 text-xs font-bold uppercase tracking-wide md:flex md:items-center md:gap-2 md:whitespace-nowrap">
+                <div class="grid min-w-0 gap-2 rounded-2xl bg-white/35 p-2 ring-1 ring-[var(--home-border)] ">
+                    <label class="home-muted px-1 text-xs font-bold uppercase tracking-wide ">
                         <span>Срок</span>
                         <input
                             :value="editingDueAt"
@@ -306,7 +306,7 @@ function updateNewAttachments(files) {
                         </button>
                     </label>
 
-                    <label class="home-muted px-1 text-xs font-bold uppercase tracking-wide md:flex md:items-center md:gap-2 md:whitespace-nowrap">
+                    <label class="home-muted px-1 text-xs font-bold uppercase tracking-wide">
                         <span>Напомнить</span>
                         <input
                             :value="editingRemindAt"
