@@ -84,31 +84,6 @@ defineExpose({
     focus: focusTextarea,
 })
 
-function toLocalDateTime(date, hour = 9) {
-    const value = new Date(date)
-    value.setHours(hour, 0, 0, 0)
-
-    const offset = value.getTimezoneOffset() * 60000
-    return new Date(value.getTime() - offset).toISOString().slice(0, 16)
-}
-
-function applyDueChip(type) {
-    const date = new Date()
-
-    if (type === 'tomorrow') {
-        date.setDate(date.getDate() + 1)
-    }
-
-    if (type === 'weekend') {
-        const day = date.getDay()
-        const daysUntilSaturday = (6 - day + 7) % 7 || 7
-        date.setDate(date.getDate() + daysUntilSaturday)
-    }
-
-    dueAtModel.value = toLocalDateTime(date, 18)
-    remindAtModel.value = toLocalDateTime(date, 9)
-}
-
 function toggleDetails() {
     detailsOpen.value = !detailsOpen.value
 }
@@ -193,9 +168,6 @@ function toggleDetails() {
             </div>
 
             <div class="mt-2 flex flex-wrap gap-2 px-1">
-                <button type="button" class="home-soft-button rounded-full px-3 py-2 text-xs font-bold" @click="applyDueChip('today')">Сегодня</button>
-                <button type="button" class="home-soft-button rounded-full px-3 py-2 text-xs font-bold" @click="applyDueChip('tomorrow')">Завтра</button>
-                <button type="button" class="home-soft-button rounded-full px-3 py-2 text-xs font-bold" @click="applyDueChip('weekend')">На выходных</button>
                 <button type="button" class="home-soft-button rounded-full px-3 py-2 text-xs font-bold" @click="detailsOpen = true">Выбрать дату</button>
             </div>
 
@@ -215,11 +187,13 @@ function toggleDetails() {
                         <label class="home-muted block px-2 text-xs font-bold uppercase tracking-wide" for="task-due-at">
                             Срок
                             <input id="task-due-at" v-model="dueAtModel" class="home-input mt-1 w-full rounded-[1.2rem] px-3 py-2 text-sm normal-case tracking-normal" type="datetime-local" />
+                            <button v-if="dueAtModel" type="button" class="mt-1 text-xs font-bold normal-case tracking-normal text-[var(--home-text-subtle)]" @click="dueAtModel = ''">Убрать срок</button>
                         </label>
 
                         <label class="home-muted block px-2 text-xs font-bold uppercase tracking-wide" for="task-remind-at">
                             Напомнить
                             <input id="task-remind-at" v-model="remindAtModel" class="home-input mt-1 w-full rounded-[1.2rem] px-3 py-2 text-sm normal-case tracking-normal" type="datetime-local" />
+                            <button v-if="remindAtModel" type="button" class="mt-1 text-xs font-bold normal-case tracking-normal text-[var(--home-text-subtle)]" @click="remindAtModel = ''">Убрать напоминание</button>
                         </label>
 
                         <label class="home-muted block px-2 text-xs font-bold uppercase tracking-wide" for="task-priority">

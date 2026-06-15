@@ -33,6 +33,18 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    editingDueAt: {
+        type: String,
+        default: '',
+    },
+    editingRemindAt: {
+        type: String,
+        default: '',
+    },
+    editingPriority: {
+        type: String,
+        default: 'normal',
+    },
     isMenuOpen: {
         type: Boolean,
         default: false,
@@ -61,6 +73,9 @@ const emit = defineEmits([
     'update:editingNote',
     'update:editingAttachments',
     'update:editingNewAttachments',
+    'update:editingDueAt',
+    'update:editingRemindAt',
+    'update:editingPriority',
 ])
 
 const detailsOpen = ref(false)
@@ -270,6 +285,58 @@ function updateNewAttachments(files) {
                     @keydown.meta.enter.prevent="emit('save-edit', task)"
                     @keydown.esc.prevent="emit('cancel-edit')"
                 />
+
+                <div class="grid gap-2 rounded-2xl bg-white/35 p-2 ring-1 ring-[var(--home-border)] sm:grid-cols-3">
+                    <label class="home-muted px-1 text-xs font-bold uppercase tracking-wide">
+                        Срок
+                        <input
+                            :value="editingDueAt"
+                            class="home-input mt-1 w-full rounded-xl px-3 py-2 text-sm normal-case tracking-normal"
+                            type="datetime-local"
+                            @input="emit('update:editingDueAt', $event.target.value)"
+                        />
+                        <button
+                            v-if="editingDueAt"
+                            type="button"
+                            class="mt-1 text-xs font-bold normal-case tracking-normal text-[var(--home-text-subtle)]"
+                            @click="emit('update:editingDueAt', '')"
+                        >
+                            Убрать срок
+                        </button>
+                    </label>
+
+                    <label class="home-muted px-1 text-xs font-bold uppercase tracking-wide">
+                        Напомнить
+                        <input
+                            :value="editingRemindAt"
+                            class="home-input mt-1 w-full rounded-xl px-3 py-2 text-sm normal-case tracking-normal"
+                            type="datetime-local"
+                            @input="emit('update:editingRemindAt', $event.target.value)"
+                        />
+                        <button
+                            v-if="editingRemindAt"
+                            type="button"
+                            class="mt-1 text-xs font-bold normal-case tracking-normal text-[var(--home-text-subtle)]"
+                            @click="emit('update:editingRemindAt', '')"
+                        >
+                            Убрать напоминание
+                        </button>
+                    </label>
+
+                    <label class="home-muted px-1 text-xs font-bold uppercase tracking-wide">
+                        Приоритет
+                        <select
+                            :value="editingPriority"
+                            class="home-input mt-1 w-full rounded-xl px-3 py-2 text-sm normal-case tracking-normal"
+                            @change="emit('update:editingPriority', $event.target.value)"
+                        >
+                            <option value="low">Низкий</option>
+                            <option value="normal">Обычный</option>
+                            <option value="high">Высокий</option>
+                        </select>
+                    </label>
+                </div>
+
                 <div class="space-y-2 rounded-2xl bg-white/35 p-2 ring-1 ring-[var(--home-border)]">
                     <div class="home-muted px-1 text-xs font-bold uppercase tracking-wide">
                         Вложения

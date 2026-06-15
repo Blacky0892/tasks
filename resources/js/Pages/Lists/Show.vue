@@ -74,6 +74,9 @@ const editingTitle = ref('')
 const editingNote = ref('')
 const editingAttachments = ref([])
 const editingNewAttachments = ref([])
+const editingDueAt = ref('')
+const editingRemindAt = ref('')
+const editingPriority = ref('normal')
 const openedTaskMenuId = ref(null)
 const taskReorderMode = ref(false)
 const searchQuery = ref('')
@@ -321,6 +324,21 @@ function updateComposerAttachments(files) {
     form.attachments = files
 }
 
+function toLocalDateTimeInput(value) {
+    if (!value) {
+        return ''
+    }
+
+    const date = new Date(value)
+
+    if (Number.isNaN(date.getTime())) {
+        return ''
+    }
+
+    const offset = date.getTimezoneOffset() * 60000
+    return new Date(date.getTime() - offset).toISOString().slice(0, 16)
+}
+
 function createTask() {
     const title = form.title.trim()
     const shouldCloseAfterCreate = title.split(/\r?\n/).filter(line => line.trim()).length > 1
@@ -522,6 +540,9 @@ function startEditTask(task) {
     editingNote.value = task.note ?? ''
     editingAttachments.value = [...(task.attachments ?? [])]
     editingNewAttachments.value = []
+    editingDueAt.value = toLocalDateTimeInput(task.due_at)
+    editingRemindAt.value = toLocalDateTimeInput(task.remind_at)
+    editingPriority.value = task.priority ?? 'normal'
 
     nextTick(() => {
         editingInput.value?.focus()
@@ -535,6 +556,9 @@ function cancelEditTask() {
     editingNote.value = ''
     editingAttachments.value = []
     editingNewAttachments.value = []
+    editingDueAt.value = ''
+    editingRemindAt.value = ''
+    editingPriority.value = 'normal'
 }
 
 // Сохраняет новое название и заметку задачи, если они изменились и доступна сеть.
@@ -544,6 +568,9 @@ function saveEditTask(task) {
     const currentNote = task.note ?? ''
     const currentAttachmentPaths = (task.attachments ?? []).map(attachment => attachment.path).join('|')
     const editingAttachmentPaths = editingAttachments.value.map(attachment => attachment.path).join('|')
+    const currentDueAt = toLocalDateTimeInput(task.due_at)
+    const currentRemindAt = toLocalDateTimeInput(task.remind_at)
+    const currentPriority = task.priority ?? 'normal'
 
     if (!title) {
         cancelEditTask()
@@ -555,6 +582,9 @@ function saveEditTask(task) {
         && note === currentNote
         && editingAttachmentPaths === currentAttachmentPaths
         && editingNewAttachments.value.length === 0
+        && editingDueAt.value === currentDueAt
+        && editingRemindAt.value === currentRemindAt
+        && editingPriority.value === currentPriority
     ) {
         cancelEditTask()
         return
@@ -572,6 +602,9 @@ function saveEditTask(task) {
         note,
         kept_attachments: editingAttachments.value,
         attachments: editingNewAttachments.value,
+        due_at: editingDueAt.value || null,
+        remind_at: editingRemindAt.value || null,
+        priority: editingPriority.value,
     }, {
         preserveScroll: true,
         forceFormData: true,
@@ -1076,10 +1109,16 @@ syncLocalTasks(props.list.tasks)
                             :editing-note="editingNote"
                             :editing-attachments="editingAttachments"
                             :editing-new-attachments="editingNewAttachments"
+                            :editing-due-at="editingDueAt"
+                            :editing-remind-at="editingRemindAt"
+                            :editing-priority="editingPriority"
                             @update:editing-title="editingTitle = $event"
                             @update:editing-note="editingNote = $event"
                             @update:editing-attachments="editingAttachments = $event"
                             @update:editing-new-attachments="editingNewAttachments = $event"
+                            @update:editing-due-at="editingDueAt = $event"
+                            @update:editing-remind-at="editingRemindAt = $event"
+                            @update:editing-priority="editingPriority = $event"
                             @toggle="handleTaskTitleClick"
                             @edit="startEditTask"
                             @save-edit="saveEditTask"
@@ -1112,6 +1151,9 @@ syncLocalTasks(props.list.tasks)
                 :opened-task-menu-id="openedTaskMenuId"
                 :editing-attachments="editingAttachments"
                 :editing-new-attachments="editingNewAttachments"
+                :editing-due-at="editingDueAt"
+                :editing-remind-at="editingRemindAt"
+                :editing-priority="editingPriority"
                 :can-clear-done="isOnline && doneTasks.length > 0"
                 :is-clearing-done="isClearingDoneTasks"
                 :search-query="searchQuery"
@@ -1122,6 +1164,9 @@ syncLocalTasks(props.list.tasks)
                 @toggle-task="handleTaskTitleClick"
                 @update:editing-attachments="editingAttachments = $event"
                 @update:editing-new-attachments="editingNewAttachments = $event"
+                @update:editing-due-at="editingDueAt = $event"
+                @update:editing-remind-at="editingRemindAt = $event"
+                @update:editing-priority="editingPriority = $event"
                 @edit="startEditTask"
                 @save-edit="saveEditTask"
                 @cancel-edit="cancelEditTask"
