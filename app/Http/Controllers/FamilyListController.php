@@ -26,6 +26,12 @@ class FamilyListController extends Controller
     public function index(): Response
     {
         $lists = FamilyList::query()
+            ->with(['tasks' => fn ($query) => $query
+                ->select('id', 'family_list_id', 'title', 'is_done', 'sort_order')
+                ->orderBy('is_done')
+                ->orderBy('sort_order')
+                ->orderByDesc('created_at'),
+            ])
             ->withCount([
                 'tasks as active_tasks_count' => fn ($query) => $query->where('is_done', false),
                 'tasks as done_tasks_count' => fn ($query) => $query->where('is_done', true),

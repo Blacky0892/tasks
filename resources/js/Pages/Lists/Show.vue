@@ -76,6 +76,9 @@ const editingAttachments = ref([])
 const editingNewAttachments = ref([])
 const openedTaskMenuId = ref(null)
 const taskReorderMode = ref(false)
+const searchQuery = ref('')
+const showSearch = ref(false)
+const searchInput = ref(null)
 const pendingDeleteIds = ref([])
 const pendingDeleteTasks = ref([])
 const deleteTimers = new Map()
@@ -101,19 +104,36 @@ const listForm = useForm({
     emoji: props.list.emoji,
 })
 
+const normalizedSearchQuery = computed(() => searchQuery.value.trim().toLocaleLowerCase())
+const isSearching = computed(() => normalizedSearchQuery.value.length > 0)
+
+function taskMatchesSearch(task) {
+    if (!isSearching.value) {
+        return true
+    }
+
+    return (task.title ?? '').toLocaleLowerCase().includes(normalizedSearchQuery.value)
+}
+
 // Формирует список активных задач, исключая задачи, ожидающие подтверждённого удаления.
 const activeTasks = computed(() => {
-    return localActiveTasks.value.filter(task => !pendingDeleteIds.value.includes(task.id))
+    return localActiveTasks.value
+        .filter(task => !pendingDeleteIds.value.includes(task.id))
+        .filter(taskMatchesSearch)
 })
 
 // Формирует список выполненных задач, исключая задачи, ожидающие подтверждённого удаления или очистки истории.
 const pendingClearDoneIds = computed(() => pendingClearDoneTasks.value.map(task => task.id))
 
 const doneTasks = computed(() => {
-    return localDoneTasks.value.filter(task => {
-        return !pendingDeleteIds.value.includes(task.id) && !pendingClearDoneIds.value.includes(task.id)
-    })
+    return localDoneTasks.value
+        .filter(task => {
+            return !pendingDeleteIds.value.includes(task.id) && !pendingClearDoneIds.value.includes(task.id)
+        })
+        .filter(taskMatchesSearch)
 })
+
+const filteredOfflineTasks = computed(() => offlineTasks.value.filter(taskMatchesSearch))
 
 const doneTasksLimit = ref(3)
 
@@ -132,7 +152,7 @@ const hiddenDoneTasksCount = computed(() => {
 })
 
 // Считает общее количество задач в списке, включая локальные офлайн-задачи.
-const tasksTotal = computed(() => activeTasks.value.length + doneTasks.value.length + offlineTasks.value.length)
+const tasksTotal = computed(() => activeTasks.value.length + doneTasks.value.length + filteredOfflineTasks.value.length)
 
 // Рассчитывает процент выполнения списка на основе общего числа задач.
 const progressPercent = computed(() => {
@@ -215,6 +235,12 @@ watch(
     },
 )
 
+watch(isSearching, value => {
+    if (value) {
+        taskReorderMode.value = false
+    }
+})
+
 // Следит за обновлением задач, пришедших с сервера, и пересобирает локальные списки.
 watch(
     () => props.list.tasks,
@@ -257,7 +283,12 @@ function reloadApp() {
 
 // Прокручивает список к активным задачам: временное действие для кнопки поиска в мобильной панели.
 function handleMobileSearch() {
-    document.querySelector('[data-task-list]')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    showSearch.value = true
+
+    nextTick(() => {
+        searchInput.value?.focus()
+        document.querySelector('[data-task-search]')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
 }
 
 // Task composer
@@ -573,6 +604,11 @@ function disableTaskReorderMode() {
 
 // Переключает режим ручной сортировки задач.
 function toggleTaskReorderMode() {
+    if (isSearching.value) {
+        taskReorderMode.value = false
+        return
+    }
+
     taskReorderMode.value = !taskReorderMode.value
 }
 
@@ -604,7 +640,7 @@ function handleTaskTitleClick(task) {
         return
     }
 
-    if (taskReorderMode.value) {
+    if (taskReorderMode.value || isSearching.value) {
         return
     }
 
@@ -931,7 +967,26 @@ syncLocalTasks(props.list.tasks)
 
             <section class="space-y-3" data-task-list>
                 <div
-                    v-if="activeTasks.length === 0 && doneTasks.length === 0"
+                    v-if="showSearch"
+                    class="home-soft-card rounded-[1.75rem] p-3"
+                    data-task-search
+                >
+                    <label class="home-muted mb-2 block text-xs font-bold uppercase tracking-wide" for="task-search">
+                        Поиск по задачам
+                    </label>
+                    <input
+                        id="task-search"
+                        ref="searchInput"
+                        v-model="searchQuery"
+                        type="search"
+                        class="home-input min-h-12 w-full rounded-[1.35rem] px-4 text-base font-semibold"
+                        placeholder="Найти задачу по названию"
+                        autocomplete="off"
+                    >
+                </div>
+
+                <div
+                    v-if="!isSearching && activeTasks.length === 0 && doneTasks.length === 0"
                     class="home-card rounded-[2rem] p-5"
                 >
                     <div class="home-title text-lg font-semibold">
@@ -952,13 +1007,13 @@ syncLocalTasks(props.list.tasks)
                 </div>
 
                 <TransitionGroup
-                    v-if="offlineTasks.length > 0"
+                    v-if="filteredOfflineTasks.length > 0"
                     name="task-list"
                     tag="div"
                     class="mb-3 space-y-3"
                 >
                     <OfflineTaskCard
-                        v-for="task in offlineTasks"
+                        v-for="task in filteredOfflineTasks"
                         :key="task.id"
                         :task="task"
                         @remove="removeOfflineTask(task.id)"
@@ -966,7 +1021,7 @@ syncLocalTasks(props.list.tasks)
                 </TransitionGroup>
 
                 <div
-                    v-if="taskReorderMode"
+                    v-if="taskReorderMode && !isSearching"
                     class="home-soft-card mb-3 rounded-[1.75rem] p-3"
                 >
                     <div class="flex items-center justify-between gap-3">
@@ -995,8 +1050,8 @@ syncLocalTasks(props.list.tasks)
                     handle=".task-drag-handle"
                     tag="div"
                     class="space-y-3"
-                    :class="taskReorderMode ? 'rounded-[2rem] ring-2 ring-[var(--home-focus)] ring-offset-2 ring-offset-[var(--home-bg)]' : ''"
-                    :disabled="!taskReorderMode"
+                    :class="taskReorderMode && !isSearching ? 'rounded-[2rem] ring-2 ring-[var(--home-focus)] ring-offset-2 ring-offset-[var(--home-bg)]' : ''"
+                    :disabled="!taskReorderMode || isSearching"
                     ghost-class="home-drag-ghost"
                     chosen-class="home-drag-chosen"
                     drag-class="home-drag-active"
@@ -1005,10 +1060,10 @@ syncLocalTasks(props.list.tasks)
                 >
                     <template #item="{ element: task }">
                         <TaskCard
-                            v-if="!pendingDeleteIds.includes(task.id)"
+                            v-if="!pendingDeleteIds.includes(task.id) && taskMatchesSearch(task)"
                             :task="task"
                             variant="active"
-                            :reorder-mode="taskReorderMode"
+                            :reorder-mode="taskReorderMode && !isSearching"
                             :is-editing="editingTaskId === task.id"
                             :editing-title="editingTitle"
                             :is-menu-open="openedTaskMenuId === task.id"
@@ -1030,6 +1085,14 @@ syncLocalTasks(props.list.tasks)
                         />
                     </template>
                 </draggable>
+
+                <div
+                    v-if="isSearching && activeTasks.length === 0 && doneTasks.length === 0 && filteredOfflineTasks.length === 0"
+                    class="home-card rounded-[2rem] p-5"
+                >
+                    <div class="home-title text-lg font-semibold">Ничего не найдено</div>
+                    <div class="home-muted mt-2 text-sm leading-relaxed">Попробуйте изменить запрос или очистить поиск.</div>
+                </div>
             </section>
 
             <DoneTasksSection
@@ -1045,6 +1108,7 @@ syncLocalTasks(props.list.tasks)
                 :editing-new-attachments="editingNewAttachments"
                 :can-clear-done="isOnline && doneTasks.length > 0"
                 :is-clearing-done="isClearingDoneTasks"
+                :search-query="searchQuery"
                 @toggle-show="showDoneTasks = !showDoneTasks"
                 @show-more="showMoreDoneTasks"
                 @update:editing-title="editingTitle = $event"
@@ -1080,6 +1144,14 @@ syncLocalTasks(props.list.tasks)
             ➕
         </button>
 
+        <button
+            type="button"
+            class="home-bottom-add-button fixed bottom-23 right-6 z-30 hidden h-[58px] w-[58px] items-center justify-center rounded-full text-2xl font-bold leading-none sm:flex"
+            @click="handleMobileSearch"
+            aria-label="Поиск задачи"
+        >
+            🔍
+        </button>
 
         <Transition
             enter-active-class="transition duration-200 ease-out"

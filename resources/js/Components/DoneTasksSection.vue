@@ -53,6 +53,10 @@ defineProps({
         type: Boolean,
         default: false,
     },
+    searchQuery: {
+        type: String,
+        default: '',
+    },
 })
 
 // Объявляет события, которые секция пробрасывает родителю:
@@ -123,6 +127,7 @@ defineEmits([
                 :editing-attachments="editingAttachments"
                 :editing-new-attachments="editingNewAttachments"
                 :is-menu-open="openedTaskMenuId === task.id"
+                :search-query="searchQuery"
                 @update:editing-title="$emit('update:editing-title', $event)"
                 @update:editing-note="$emit('update:editing-note', $event)"
                 @update:editing-attachments="$emit('update:editing-attachments', $event)"

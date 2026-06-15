@@ -1,6 +1,6 @@
 <script setup>
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3'
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import draggable from 'vuedraggable'
 import NetworkStatus from '@/Components/NetworkStatus.vue'
 import MobileCommandBar from '@/Components/MobileCommandBar.vue'
@@ -21,6 +21,9 @@ const user = computed(() => page.props.auth?.user ?? null)
 const { isOnline } = useNetworkStatus()
 
 const localLists = ref([...props.lists])
+const searchQuery = ref('')
+const showSearch = ref(false)
+const searchInput = ref(null)
 
 // Следит за изменениями списков из props и синхронизирует локальную копию для drag-and-drop.
 watch(
@@ -29,6 +32,7 @@ watch(
         localLists.value = [...value]
     },
 )
+
 
 // Считает общее количество активных задач во всех списках.
 const activeTasksCount = computed(() => {
@@ -42,6 +46,26 @@ const doneTasksCount = computed(() => {
 
 // Возвращает общее количество задач: активные плюс выполненные.
 const totalTasksCount = computed(() => activeTasksCount.value + doneTasksCount.value)
+
+const normalizedSearchQuery = computed(() => searchQuery.value.trim().toLocaleLowerCase())
+const isSearching = computed(() => normalizedSearchQuery.value.length > 0)
+const searchResults = computed(() => {
+    if (!isSearching.value) {
+        return []
+    }
+
+    return localLists.value.flatMap(list => {
+        return (list.tasks ?? [])
+            .filter(task => (task.title ?? '').toLocaleLowerCase().includes(normalizedSearchQuery.value))
+            .map(task => ({ task, list }))
+    })
+})
+
+watch(isSearching, value => {
+    if (value) {
+        listReorderMode.value = false
+    }
+})
 
 // Рассчитывает общий процент выполненных задач по всем спискам.
 const totalProgressPercent = computed(() => {
@@ -191,7 +215,7 @@ async function checkRemoteListsChanges() {
         return
     }
 
-    if (showCreateForm.value || isCreateIconPickerOpen.value || listReorderMode.value) {
+    if (showCreateForm.value || isCreateIconPickerOpen.value || listReorderMode.value || isSearching.value) {
         return
     }
 
@@ -420,12 +444,21 @@ function createTemplateList(title, emoji) {
 
 // Прокручивает главную к спискам: временное действие для кнопки поиска в мобильной панели.
 function handleMobileSearch() {
-    document.querySelector('[data-home-lists]')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-}
+    showSearch.value = true
 
+    nextTick(() => {
+        searchInput.value?.focus()
+        document.querySelector('[data-home-search]')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+}
 
 // Включает или выключает режим ручной сортировки списков.
 function toggleListReorderMode() {
+    if (isSearching.value) {
+        listReorderMode.value = false
+        return
+    }
+
     if (!isOnline.value) {
         return
     }
@@ -440,6 +473,10 @@ function disableListReorderMode() {
 
 // Блокирует переход в список при клике, если сейчас включён режим сортировки.
 function handleListClick(event) {
+    if (isSearching.value) {
+        return
+    }
+
     if (!listReorderMode.value) {
         return
     }
@@ -497,7 +534,7 @@ function saveListsOrder() {
                             type="button"
                             class="home-hero-icon flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.45rem] text-3xl transition active:scale-95 disabled:opacity-50 sm:h-16 sm:w-16 sm:text-4xl"
                             :class="listReorderMode ? 'ring-4 ring-white/70' : ''"
-                            :disabled="!isOnline"
+                            :disabled="!isOnline || isSearching"
                             :aria-label="listReorderMode ? 'Выключить сортировку списков' : 'Включить сортировку списков'"
                             @click="toggleListReorderMode"
                         >
@@ -599,7 +636,25 @@ function saveListsOrder() {
 
             <section data-home-lists>
                 <div
-                    v-if="listReorderMode"
+                    v-if="showSearch"
+                    class="home-soft-card mb-3 rounded-[1.75rem] p-3"
+                    data-home-search
+                >
+                    <label class="home-muted mb-2 block text-xs font-bold uppercase tracking-wide" for="home-task-search">
+                        Поиск по задачам
+                    </label>
+                    <input
+                        id="home-task-search"
+                        v-model="searchQuery"
+                        ref="searchInput"
+                        type="search"
+                        class="home-input min-h-12 w-full rounded-[1.35rem] px-4 text-base font-semibold"
+                        placeholder="Найти задачу на главной"
+                        autocomplete="off"
+                    >
+                </div>
+                <div
+                    v-if="listReorderMode && !isSearching"
                     class="home-soft-card mb-3 rounded-[1.75rem] p-3"
                 >
                     <div class="flex items-center justify-between gap-3">
@@ -623,12 +678,13 @@ function saveListsOrder() {
                 </div>
 
                 <draggable
+                    v-if="!isSearching"
                     v-model="localLists"
                     item-key="id"
                     handle=".list-drag-handle"
                     tag="div"
                     class="space-y-3"
-                    :class="listReorderMode ? 'rounded-[2rem] ring-2 ring-[var(--home-focus)] ring-offset-2 ring-offset-[var(--home-bg)]' : ''"
+                    :class="listReorderMode && !isSearching ? 'rounded-[2rem] ring-2 ring-[var(--home-focus)] ring-offset-2 ring-offset-[var(--home-bg)]' : ''"
                     :disabled="!listReorderMode"
                     ghost-class="home-drag-ghost"
                     chosen-class="home-drag-chosen"
@@ -704,7 +760,56 @@ function saveListsOrder() {
                 </draggable>
 
                 <div
-                    v-if="localLists.length === 0 && !showCreateForm"
+                    v-else
+                    class="space-y-3"
+                >
+                    <div
+                        v-for="result in searchResults"
+                        :key="`${result.list.id}-${result.task.id}`"
+                        class="home-card home-tap-card relative overflow-hidden rounded-[2rem] p-2 transition active:scale-[0.99] sm:p-3"
+                    >
+                        <Link
+                            :href="route('lists.show', result.list.id)"
+                            class="block min-w-0 flex-1 rounded-[1.65rem] p-3 transition active:scale-[0.99] sm:p-4"
+                        >
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex items-center gap-3">
+                                        <div class="home-emoji-tile flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-[1.35rem] text-[28px] sm:h-12 sm:w-12 sm:text-2xl">
+                                            {{ result.list.emoji }}
+                                        </div>
+                                        <div class="min-w-0">
+                                            <div class="home-title truncate text-[19px] font-bold leading-tight sm:text-lg">
+                                                {{ result.task.title }}
+                                            </div>
+                                            <div class="home-muted mt-1 text-[14px] font-medium leading-tight">
+                                                В списке «{{ result.list.title }}» · {{ result.task.is_done ? 'выполнено' : 'активно' }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div
+                                    class="home-list-card-status flex h-10 min-w-10 shrink-0 items-center justify-center rounded-full px-3 text-sm font-bold"
+                                    :class="result.task.is_done ? 'home-list-card-status-done' : 'home-list-card-status-active'"
+                                >
+                                    {{ result.task.is_done ? '✓' : '•' }}
+                                </div>
+                            </div>
+                        </Link>
+                    </div>
+                </div>
+
+                <div
+                    v-if="isSearching && searchResults.length === 0"
+                    class="home-card rounded-[2rem] p-5"
+                >
+                    <div class="home-title text-lg font-semibold">Ничего не найдено</div>
+                    <div class="home-muted mt-2 text-sm leading-relaxed">Попробуйте изменить запрос или очистить поиск.</div>
+                </div>
+
+
+                <div
+                    v-if="localLists.length === 0 && !showCreateForm && !isSearching"
                     class="home-card rounded-[2rem] p-5"
                 >
                     <div class="home-title text-lg font-semibold">
@@ -845,6 +950,16 @@ function saveListsOrder() {
             aria-label="Добавить список"
         >
             ➕
+        </button>
+
+        <button
+            v-if="!showCreateForm"
+            type="button"
+            class="home-bottom-add-button fixed bottom-23 right-6 z-30 hidden h-[58px] w-[58px] items-center justify-center rounded-full text-2xl font-bold leading-none sm:flex"
+            @click="handleMobileSearch"
+            aria-label="Поиск задачи"
+        >
+            🔍
         </button>
 
         <Transition

@@ -41,6 +41,10 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    searchQuery: {
+        type: String,
+        default: '',
+    },
 })
 
 // Объявляет события карточки, через которые родитель управляет задачей.
@@ -112,6 +116,39 @@ const completedHint = computed(() => {
     }
 
     return `${completedByName.value} отметил(а)`
+})
+
+const normalizedSearchQuery = computed(() => props.searchQuery.trim().toLocaleLowerCase())
+
+const titleSegments = computed(() => {
+    const title = props.task.title ?? ''
+    const query = normalizedSearchQuery.value
+
+    if (!query) {
+        return [{ value: title, match: false }]
+    }
+
+    const lowerTitle = title.toLocaleLowerCase()
+    const segments = []
+    let lastIndex = 0
+    let index = lowerTitle.indexOf(query)
+
+    while (index !== -1) {
+        if (index > lastIndex) {
+            segments.push({ value: title.slice(lastIndex, index), match: false })
+        }
+
+        const end = index + query.length
+        segments.push({ value: title.slice(index, end), match: true })
+        lastIndex = end
+        index = lowerTitle.indexOf(query, lastIndex)
+    }
+
+    if (lastIndex < title.length) {
+        segments.push({ value: title.slice(lastIndex), match: false })
+    }
+
+    return segments
 })
 
 const hasNote = computed(() => Boolean(props.task.note?.trim()))
@@ -304,7 +341,14 @@ function updateNewAttachments(files) {
                 @pointerleave="emit('clear-long-press')"
                 @pointercancel="emit('clear-long-press')"
             >
-                <span class="line-clamp-3 sm:line-clamp-2">{{ task.title }}</span>
+                 <span class="line-clamp-3 sm:line-clamp-2">
+                    <template v-for="(segment, index) in titleSegments" :key="index">
+                        <mark
+                            v-if="segment.match"
+                            class="rounded-md bg-yellow-200/80 px-0.5 text-inherit"
+                        >{{ segment.value }}</mark><span v-else>{{ segment.value }}</span>
+                    </template>
+                </span>
 
                 <span
                     v-if="completedHint"
