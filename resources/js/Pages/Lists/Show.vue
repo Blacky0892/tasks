@@ -3,6 +3,7 @@ import {Head, Link, router, useForm, usePage} from '@inertiajs/vue3'
 import {computed, nextTick, onMounted, onUnmounted, ref, watch} from 'vue'
 import draggable from 'vuedraggable'
 import NetworkStatus from '@/Components/NetworkStatus.vue'
+import MobileCommandBar from '@/Components/MobileCommandBar.vue'
 import {useNetworkStatus} from '@/Composables/useNetworkStatus'
 import {useOfflineTaskQueue} from '@/Composables/useOfflineTaskQueue'
 import {listIconOptions} from '@/Support/listIcons'
@@ -252,6 +253,11 @@ function reloadApp() {
     }
 
     window.location.reload()
+}
+
+// Прокручивает список к активным задачам: временное действие для кнопки поиска в мобильной панели.
+function handleMobileSearch() {
+    document.querySelector('[data-task-list]')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 // Task composer
@@ -815,7 +821,7 @@ syncLocalTasks(props.list.tasks)
     <NetworkStatus/>
 
     <main class="home-page home-mobile-page" @click.self="closeTaskMenu">
-        <div class="home-container pb-44 sm:pb-32">
+        <div class="home-container pb-[calc(11.25rem+env(safe-area-inset-bottom))] sm:pb-32">
             <header class="home-list-header sticky top-0 z-20 -mx-3 mb-5 px-3 pt-3 sm:static sm:mx-0 sm:px-0 sm:pt-0">
                 <div
                     class="home-list-hero relative overflow-hidden rounded-b-[2.2rem] px-1 pb-4 pt-2 sm:rounded-[2rem] sm:px-4">
@@ -923,7 +929,7 @@ syncLocalTasks(props.list.tasks)
                 @close="closeTaskComposer"
             />
 
-            <section class="space-y-3">
+            <section class="space-y-3" data-task-list>
                 <div
                     v-if="activeTasks.length === 0 && doneTasks.length === 0"
                     class="home-card rounded-[2rem] p-5"
@@ -1057,13 +1063,21 @@ syncLocalTasks(props.list.tasks)
             />
         </div>
 
+        <MobileCommandBar
+            add-label="Добавить задачу"
+            profile-label="Профиль"
+            profile-icon="👤"
+            @add="handleBottomAddClick"
+            @search="handleMobileSearch"
+        />
+
         <button
             type="button"
-            class="home-bottom-add-button fixed bottom-[max(env(safe-area-inset-bottom),1rem)] right-4 z-30 flex h-[58px] w-[58px] items-center justify-center rounded-full text-2xl font-bold leading-none"
+            class="home-bottom-add-button fixed bottom-6 right-6 z-30 hidden h-[58px] w-[58px] items-center justify-center rounded-full text-2xl font-bold leading-none sm:flex"
             @click="handleBottomAddClick"
             aria-label="Добавить задачу"
         >
-            ＋
+            ➕
         </button>
 
 

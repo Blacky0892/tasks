@@ -3,6 +3,7 @@ import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import draggable from 'vuedraggable'
 import NetworkStatus from '@/Components/NetworkStatus.vue'
+import MobileCommandBar from '@/Components/MobileCommandBar.vue'
 import { useNetworkStatus } from '@/Composables/useNetworkStatus'
 import { listIconOptions } from '@/Support/listIcons'
 
@@ -417,6 +418,12 @@ function createTemplateList(title, emoji) {
     createList()
 }
 
+// Прокручивает главную к спискам: временное действие для кнопки поиска в мобильной панели.
+function handleMobileSearch() {
+    document.querySelector('[data-home-lists]')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+
 // Включает или выключает режим ручной сортировки списков.
 function toggleListReorderMode() {
     if (!isOnline.value) {
@@ -466,7 +473,7 @@ function saveListsOrder() {
     <NetworkStatus />
 
     <main class="home-page home-mobile-page">
-        <div class="home-container pb-28 sm:pb-24">
+        <div class="home-container pb-[calc(7.75rem+env(safe-area-inset-bottom))] sm:pb-24">
             <header class="mb-5 sm:mb-6">
                 <div class="home-hero-card-compact home-hero-mobile relative overflow-hidden rounded-[2rem] p-4 sm:p-5">
                     <div class="home-hero-orb" />
@@ -590,7 +597,7 @@ function saveListsOrder() {
                 </section>
             </Transition>
 
-            <section>
+            <section data-home-lists>
                 <div
                     v-if="listReorderMode"
                     class="home-soft-card mb-3 rounded-[1.75rem] p-3"
@@ -821,14 +828,23 @@ function saveListsOrder() {
             </section>
         </div>
 
+        <MobileCommandBar
+            v-if="!showCreateForm"
+            add-label="Добавить список"
+            profile-label="Профиль"
+            profile-icon="👤"
+            @add="openCreateForm"
+            @search="handleMobileSearch"
+        />
+
         <button
             v-if="!showCreateForm"
             type="button"
-            class="home-bottom-add-button fixed bottom-[max(env(safe-area-inset-bottom),1rem)] right-4 z-30 flex h-[58px] w-[58px] items-center justify-center rounded-full text-2xl font-bold leading-none"
+            class="home-bottom-add-button fixed bottom-6 right-6 z-30 hidden h-[58px] w-[58px] items-center justify-center rounded-full text-2xl font-bold leading-none sm:flex"
             @click="openCreateForm"
             aria-label="Добавить список"
         >
-            ＋
+            ➕
         </button>
 
         <Transition

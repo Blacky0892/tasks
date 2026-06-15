@@ -73,6 +73,13 @@ jobs:
             "sed -i \"s#__DIR__.'/../vendor/autoload.php'#__DIR__.'/../app/vendor/autoload.php'#\" ${{ secrets.BEGET_PUBLIC_PATH }}/index.php && \
              sed -i \"s#__DIR__.'/../bootstrap/app.php'#__DIR__.'/../app/bootstrap/app.php'#\" ${{ secrets.BEGET_PUBLIC_PATH }}/index.php"
 
+      - name: Create storage symlink
+        run: |
+          ssh -i ~/.ssh/beget_deploy_key -p ${{ secrets.BEGET_PORT }} \
+            ${{ secrets.BEGET_USER }}@${{ secrets.BEGET_HOST }} \
+            "rm -rf ${{ secrets.BEGET_PUBLIC_PATH }}/storage && \
+             ln -s ${{ secrets.BEGET_APP_PATH }}/storage/app/public ${{ secrets.BEGET_PUBLIC_PATH }}/storage"
+
       - name: Run Laravel commands
         run: |
           ssh -i ~/.ssh/beget_deploy_key -p ${{ secrets.BEGET_PORT }} \
