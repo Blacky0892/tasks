@@ -41,6 +41,18 @@ defineProps({
         type: Array,
         default: () => [],
     },
+    editingDueAt: {
+        type: String,
+        default: '',
+    },
+    editingRemindAt: {
+        type: String,
+        default: '',
+    },
+    editingPriority: {
+        type: String,
+        default: 'normal',
+    },
     openedTaskMenuId: {
         type: [Number, String, null],
         default: null,
@@ -68,6 +80,9 @@ defineEmits([
     'update:editing-note',
     'update:editing-attachments',
     'update:editing-new-attachments',
+    'update:editing-due-at',
+    'update:editing-remind-at',
+    'update:editing-priority',
     'toggle-task',
     'edit',
     'save-edit',
@@ -126,12 +141,18 @@ defineEmits([
                 :editing-note="editingNote"
                 :editing-attachments="editingAttachments"
                 :editing-new-attachments="editingNewAttachments"
+                :editing-due-at="editingDueAt"
+                :editing-remind-at="editingRemindAt"
+                :editing-priority="editingPriority"
                 :is-menu-open="openedTaskMenuId === task.id"
                 :search-query="searchQuery"
                 @update:editing-title="$emit('update:editing-title', $event)"
                 @update:editing-note="$emit('update:editing-note', $event)"
                 @update:editing-attachments="$emit('update:editing-attachments', $event)"
                 @update:editing-new-attachments="$emit('update:editing-new-attachments', $event)"
+                @update:editing-due-at="$emit('update:editing-due-at', $event)"
+                @update:editing-remind-at="$emit('update:editing-remind-at', $event)"
+                @update:editing-priority="$emit('update:editing-priority', $event)"
                 @toggle="$emit('toggle-task', $event)"
                 @edit="$emit('edit', $event)"
                 @save-edit="$emit('save-edit', $event)"

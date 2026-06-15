@@ -62,6 +62,38 @@ self.addEventListener('sync', event => {
     event.waitUntil(syncOfflineTasks())
 })
 
+self.addEventListener('push', event => {
+    const data = parsePushPayload(event)
+
+    event.waitUntil(self.registration.showNotification(data.title || 'Наш дом', {
+        body: data.body || 'У вас новое напоминание.',
+        icon: '/icons/icon-192.png',
+        badge: '/icons/icon-192.png',
+        tag: data.tag || 'task-reminder',
+        data: {
+            url: data.url || '/',
+        },
+    }))
+})
+
+self.addEventListener('notificationclick', event => {
+    event.notification.close()
+
+    const url = event.notification.data?.url || '/'
+
+    event.waitUntil((async () => {
+        const clientList = await self.clients.matchAll({type: 'window', includeUncontrolled: true})
+        const client = clientList.find(item => new URL(item.url).pathname === url)
+
+        if (client) {
+            await client.focus()
+            return
+        }
+
+        await self.clients.openWindow(url)
+    })())
+})
+
 self.addEventListener('fetch', event => {
     const request = event.request
 
@@ -141,6 +173,18 @@ function collectManifestEntryAssets(entry, assets) {
     ;['css', 'assets'].forEach(key => {
         ;(entry[key] || []).forEach(asset => assets.add(`/${asset}`))
     })
+}
+
+function parsePushPayload(event) {
+    if (!event.data) {
+        return {}
+    }
+
+    try {
+        return event.data.json()
+    } catch {
+        return {body: event.data.text()}
+    }
 }
 
 function shouldSkipRequest(request) {

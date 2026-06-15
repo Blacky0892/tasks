@@ -33,6 +33,18 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    editingDueAt: {
+        type: String,
+        default: '',
+    },
+    editingRemindAt: {
+        type: String,
+        default: '',
+    },
+    editingPriority: {
+        type: String,
+        default: 'normal',
+    },
     isMenuOpen: {
         type: Boolean,
         default: false,
@@ -61,6 +73,9 @@ const emit = defineEmits([
     'update:editingNote',
     'update:editingAttachments',
     'update:editingNewAttachments',
+    'update:editingDueAt',
+    'update:editingRemindAt',
+    'update:editingPriority',
 ])
 
 const detailsOpen = ref(false)
@@ -151,6 +166,22 @@ const titleSegments = computed(() => {
     return segments
 })
 
+const dueDate = computed(() => props.task.due_at ? new Date(props.task.due_at) : null)
+const isOverdue = computed(() => props.variant !== 'done' && dueDate.value && dueDate.value < new Date())
+const dueLabel = computed(() => {
+    if (!dueDate.value) {
+        return ''
+    }
+
+    return new Intl.DateTimeFormat('ru-RU', {
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+    }).format(dueDate.value)
+})
+const priorityLabel = computed(() => ({ low: 'Низкий', normal: 'Обычный', high: 'Высокий' }[props.task.priority] ?? 'Обычный'))
+
 const hasNote = computed(() => Boolean(props.task.note?.trim()))
 const attachments = computed(() => props.task.attachments ?? [])
 const hasAttachments = computed(() => attachments.value.length > 0)
@@ -202,7 +233,7 @@ function updateNewAttachments(files) {
             reorderMode ? 'border-[var(--home-focus)] bg-[var(--home-surface-soft)]' : '',
         ]"
     >
-        <div class="flex min-h-[60px] items-center gap-3">
+        <div class="flex min-h-[60px] flex-wrap items-center gap-3 sm:flex-nowrap">
             <button
                 v-if="reorderMode"
                 type="button"
@@ -231,12 +262,12 @@ function updateNewAttachments(files) {
 
             <div
                 v-if="isEditing"
-                class="min-w-0 flex-1 space-y-2"
+                class="order-last min-w-0 basis-full space-y-2 sm:order-none sm:flex-1 sm:basis-0"
             >
                 <textarea
                     ref="editingInput"
                     :value="editingTitle"
-                    class="home-input min-h-[68px] w-full resize-none rounded-2xl px-3 py-2 text-[17px] font-semibold leading-snug sm:min-h-[44px] sm:text-lg"
+                    class="home-input min-h-[68px] w-full max-w-full resize-none rounded-2xl px-3 py-2 text-[17px] font-semibold leading-snug sm:min-h-[44px] sm:text-lg"
                     rows="2"
                     @input="emit('update:editingTitle', $event.target.value)"
                     @keydown.ctrl.enter.prevent="emit('save-edit', task)"
@@ -246,7 +277,7 @@ function updateNewAttachments(files) {
 
                 <textarea
                     :value="editingNote"
-                    class="home-input min-h-[82px] w-full resize-none rounded-2xl px-3 py-2 text-sm leading-relaxed"
+                    class="home-input min-h-[82px] w-full max-w-full resize-none rounded-2xl px-3 py-2 text-sm leading-relaxed"
                     placeholder="Заметка…"
                     rows="3"
                     @input="emit('update:editingNote', $event.target.value)"
@@ -254,6 +285,58 @@ function updateNewAttachments(files) {
                     @keydown.meta.enter.prevent="emit('save-edit', task)"
                     @keydown.esc.prevent="emit('cancel-edit')"
                 />
+
+                <div class="grid min-w-0 gap-2 rounded-2xl bg-white/35 p-2 ring-1 ring-[var(--home-border)] md:grid-cols-3">
+                    <label class="home-muted px-1 text-xs font-bold uppercase tracking-wide">
+                        Срок
+                        <input
+                            :value="editingDueAt"
+                            class="home-input mt-1 w-full rounded-xl px-3 py-2 text-sm normal-case tracking-normal"
+                            type="datetime-local"
+                            @input="emit('update:editingDueAt', $event.target.value)"
+                        />
+                        <button
+                            v-if="editingDueAt"
+                            type="button"
+                            class="mt-1 text-xs font-bold normal-case tracking-normal text-[var(--home-text-subtle)]"
+                            @click="emit('update:editingDueAt', '')"
+                        >
+                            Убрать срок
+                        </button>
+                    </label>
+
+                    <label class="home-muted px-1 text-xs font-bold uppercase tracking-wide">
+                        Напомнить
+                        <input
+                            :value="editingRemindAt"
+                            class="home-input mt-1 w-full rounded-xl px-3 py-2 text-sm normal-case tracking-normal"
+                            type="datetime-local"
+                            @input="emit('update:editingRemindAt', $event.target.value)"
+                        />
+                        <button
+                            v-if="editingRemindAt"
+                            type="button"
+                            class="mt-1 text-xs font-bold normal-case tracking-normal text-[var(--home-text-subtle)]"
+                            @click="emit('update:editingRemindAt', '')"
+                        >
+                            Убрать напоминание
+                        </button>
+                    </label>
+
+                    <label class="home-muted px-1 text-xs font-bold uppercase tracking-wide">
+                        Приоритет
+                        <select
+                            :value="editingPriority"
+                            class="home-input mt-1 w-full rounded-xl px-3 py-2 text-sm normal-case tracking-normal"
+                            @change="emit('update:editingPriority', $event.target.value)"
+                        >
+                            <option value="low">Низкий</option>
+                            <option value="normal">Обычный</option>
+                            <option value="high">Высокий</option>
+                        </select>
+                    </label>
+                </div>
+
                 <div class="space-y-2 rounded-2xl bg-white/35 p-2 ring-1 ring-[var(--home-border)]">
                     <div class="home-muted px-1 text-xs font-bold uppercase tracking-wide">
                         Вложения
@@ -348,6 +431,23 @@ function updateNewAttachments(files) {
                             class="rounded-md bg-yellow-200/80 px-0.5 text-inherit"
                         >{{ segment.value }}</mark><span v-else>{{ segment.value }}</span>
                     </template>
+                </span>
+
+                <span
+                    v-if="dueLabel"
+                    class="mt-1 inline-flex max-w-full items-center rounded-full px-2.5 py-1 text-[11px] font-bold ring-1"
+                    :class="isOverdue ? 'bg-red-50 text-red-600 ring-red-200' : 'bg-white/60 text-[var(--home-text-subtle)] ring-[var(--home-border)]'"
+                    :title="isOverdue ? 'Срок просрочен' : 'Срок задачи'"
+                >
+                    <span class="truncate">{{ isOverdue ? 'Просрочено' : 'Срок' }} · {{ dueLabel }}</span>
+                </span>
+
+                <span
+                    v-if="task.priority === 'high'"
+                    class="ml-1 mt-1 inline-flex max-w-full items-center rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700 ring-1 ring-amber-200"
+                    :title="`Приоритет: ${priorityLabel}`"
+                >
+                    Высокий приоритет
                 </span>
 
                 <span

@@ -12,6 +12,21 @@ const noteModel = defineModel('note', {
     default: '',
 })
 
+const dueAtModel = defineModel('dueAt', {
+    type: String,
+    default: '',
+})
+
+const remindAtModel = defineModel('remindAt', {
+    type: String,
+    default: '',
+})
+
+const priorityModel = defineModel('priority', {
+    type: String,
+    default: 'normal',
+})
+
 // Описывает состояние формы создания задачи:
 // видимость, отправку, ошибки и состояние локальной offline-очереди.
 defineProps({
@@ -152,6 +167,10 @@ function toggleDetails() {
                 </button>
             </div>
 
+            <div class="mt-2 flex flex-wrap gap-2 px-1">
+                <button type="button" class="home-soft-button rounded-full px-3 py-2 text-xs font-bold" @click="detailsOpen = true">Выбрать дату</button>
+            </div>
+
             <Transition
                 enter-active-class="transition duration-150 ease-out"
                 enter-from-class="-translate-y-1 opacity-0"
@@ -164,7 +183,30 @@ function toggleDetails() {
                     v-if="detailsOpen"
                     class="px-1 pt-2"
                 >
-                    <label class="home-muted mb-1 block px-2 text-xs font-bold uppercase tracking-wide" for="task-note">
+                    <div class="grid gap-2 sm:grid-cols-3">
+                        <label class="home-muted block px-2 text-xs font-bold uppercase tracking-wide" for="task-due-at">
+                            Срок
+                            <input id="task-due-at" v-model="dueAtModel" class="home-input mt-1 w-full rounded-[1.2rem] px-3 py-2 text-sm normal-case tracking-normal" type="datetime-local" />
+                            <button v-if="dueAtModel" type="button" class="mt-1 text-xs font-bold normal-case tracking-normal text-[var(--home-text-subtle)]" @click="dueAtModel = ''">Убрать срок</button>
+                        </label>
+
+                        <label class="home-muted block px-2 text-xs font-bold uppercase tracking-wide" for="task-remind-at">
+                            Напомнить
+                            <input id="task-remind-at" v-model="remindAtModel" class="home-input mt-1 w-full rounded-[1.2rem] px-3 py-2 text-sm normal-case tracking-normal" type="datetime-local" />
+                            <button v-if="remindAtModel" type="button" class="mt-1 text-xs font-bold normal-case tracking-normal text-[var(--home-text-subtle)]" @click="remindAtModel = ''">Убрать напоминание</button>
+                        </label>
+
+                        <label class="home-muted block px-2 text-xs font-bold uppercase tracking-wide" for="task-priority">
+                            Приоритет
+                            <select id="task-priority" v-model="priorityModel" class="home-input mt-1 w-full rounded-[1.2rem] px-3 py-2 text-sm normal-case tracking-normal">
+                                <option value="low">Низкий</option>
+                                <option value="normal">Обычный</option>
+                                <option value="high">Высокий</option>
+                            </select>
+                        </label>
+                    </div>
+
+                    <label class="home-muted mb-1 mt-3 block px-2 text-xs font-bold uppercase tracking-wide" for="task-note">
                         Заметка
                     </label>
 

@@ -14,6 +14,10 @@ class Task extends Model
         'family_list_id',
         'title',
         'note',
+        'due_at',
+        'remind_at',
+        'priority',
+        'reminder_sent_at',
         'attachments',
         'sort_order',
         'is_done',
@@ -25,7 +29,10 @@ class Task extends Model
     protected $casts = [
         'is_done' => 'boolean',
         'attachments' => 'array',
+        'due_at' => 'datetime',
+        'remind_at' => 'datetime',
         'completed_at' => 'datetime',
+        'reminder_sent_at' => 'datetime',
     ];
 
     public function familyList(): BelongsTo

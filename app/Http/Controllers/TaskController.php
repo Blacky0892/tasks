@@ -7,6 +7,7 @@ use App\Models\Task;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 /**
  * Контроллер для управления задачами внутри семейных списков.
@@ -29,6 +30,9 @@ class TaskController extends Controller
             'note' => ['nullable', 'string', 'max:10000'],
             'attachments' => ['nullable', 'array', 'max:5'],
             'attachments.*' => ['file', 'max:10240'],
+            'due_at' => ['nullable', 'date'],
+            'remind_at' => ['nullable', 'date'],
+            'priority' => ['nullable', Rule::in(['low', 'normal', 'high'])],
         ]);
 
         $titles = collect(preg_split('/\R/u', $validated['title']))
@@ -54,6 +58,9 @@ class TaskController extends Controller
                 'title' => mb_substr($title, 0, 255),
                 'note' => $titles->count() === 1 ? $note : null,
                 'attachments' => $attachments,
+                'due_at' => $titles->count() === 1 ? ($validated['due_at'] ?? null) : null,
+                'remind_at' => $titles->count() === 1 ? ($validated['remind_at'] ?? null) : null,
+                'priority' => $validated['priority'] ?? 'normal',
                 'sort_order' => $maxSortOrder + $index + 1,
                 'created_by' => $request->user()->id,
             ]);
@@ -101,12 +108,15 @@ class TaskController extends Controller
             'note' => ['nullable', 'string', 'max:10000'],
             'attachments' => ['nullable', 'array', 'max:5'],
             'attachments.*' => ['file', 'max:10240'],
+            'due_at' => ['nullable', 'date'],
+            'remind_at' => ['nullable', 'date'],
+            'priority' => ['nullable', Rule::in(['low', 'normal', 'high'])],
             'kept_attachments' => ['nullable', 'array'],
             'kept_attachments.*.name' => ['required_with:kept_attachments', 'string', 'max:255'],
             'kept_attachments.*.path' => ['required_with:kept_attachments', 'string', 'max:1000'],
             'kept_attachments.*.url' => ['required_with:kept_attachments', 'string', 'max:2000'],
             'kept_attachments.*.mime' => ['nullable', 'string', 'max:255'],
-            'kept_attachments.*.size' => ['nullable', 'integer']
+            'kept_attachments.*.size' => ['nullable', 'integer'],
         ]);
 
         $note = isset($validated['note']) ? trim($validated['note']) : null;
@@ -121,6 +131,10 @@ class TaskController extends Controller
         $task->update([
             'title' => $validated['title'],
             'note' => $note !== '' ? $note : null,
+            'due_at' => $validated['due_at'] ?? null,
+            'remind_at' => $validated['remind_at'] ?? null,
+            'priority' => $validated['priority'] ?? 'normal',
+            'reminder_sent_at' => null,
             'attachments' => $attachments,
         ]);
 
@@ -160,7 +174,7 @@ class TaskController extends Controller
      */
     private function storeAttachments(Request $request): array
     {
-        if (!$request->hasFile('attachments')) {
+        if (! $request->hasFile('attachments')) {
             return [];
         }
 
@@ -220,7 +234,7 @@ class TaskController extends Controller
         foreach ($validated['ids'] as $index => $id) {
             $task = $tasks->get($id);
 
-            if (!$task) {
+            if (! $task) {
                 continue;
             }
 
