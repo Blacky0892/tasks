@@ -1,6 +1,9 @@
-const APP_VERSION = '2026-06-15-1'
-const CACHE_NAME = `nash-dom-${APP_VERSION}`
+const CACHE_PREFIX = 'nash-dom'
 const OFFLINE_URL = '/offline'
+const MANIFEST_URL = '/build/manifest.json'
+const OFFLINE_TASKS_DB = 'nash-dom-offline-tasks'
+const OFFLINE_TASKS_STORE = 'tasks'
+const OFFLINE_TASKS_SYNC = 'sync-offline-tasks'
 
 const STATIC_ASSETS = [
     '/',
@@ -8,36 +11,55 @@ const STATIC_ASSETS = [
     '/manifest.webmanifest',
     '/icons/icon-192.png',
     '/icons/icon-512.png',
-    '/icons/icon-maskable-512.png',
     '/icons/apple-touch-icon.png',
 ]
 
 self.addEventListener('install', event => {
-    event.waitUntil(
-        caches.open(CACHE_NAME).then(cache => {
-            return cache.addAll(STATIC_ASSETS).catch(() => null)
-        })
-    )
+    event.waitUntil((async () => {
+        const cache = await caches.open(await currentCacheName())
+        const shellAssets = await appShellAssets()
+
+        await cache.addAll([...new Set([...STATIC_ASSETS, ...shellAssets])]).catch(() => null)
+    })())
 })
 
 self.addEventListener('activate', event => {
-    event.waitUntil(
-        caches.keys().then(keys => {
-            return Promise.all(
-                keys
-                    .filter(key => key !== CACHE_NAME)
-                    .map(key => caches.delete(key))
-            )
-        })
-    )
+    event.waitUntil((async () => {
+        const cacheName = await currentCacheName()
+        const keys = await caches.keys()
 
-    self.clients.claim()
+        await Promise.all(
+            keys
+                .filter(key => key.startsWith(`${CACHE_PREFIX}-`) && key !== cacheName)
+                .map(key => caches.delete(key))
+        )
+
+        await self.clients.claim()
+    })())
 })
 
 self.addEventListener('message', event => {
     if (event.data?.type === 'SKIP_WAITING') {
         self.skipWaiting()
+        return
     }
+
+    if (event.data?.type === 'QUEUE_OFFLINE_TASK') {
+        event.waitUntil(queueOfflineTask(event.data.task))
+        return
+    }
+
+    if (event.data?.type === 'REMOVE_OFFLINE_TASK') {
+        event.waitUntil(removeOfflineTask(event.data.taskId))
+    }
+})
+
+self.addEventListener('sync', event => {
+    if (event.tag !== OFFLINE_TASKS_SYNC) {
+        return
+    }
+
+    event.waitUntil(syncOfflineTasks())
 })
 
 self.addEventListener('fetch', event => {
@@ -59,6 +81,67 @@ self.addEventListener('fetch', event => {
 
     event.respondWith(networkFirst(request))
 })
+
+async function currentCacheName() {
+    const version = await appVersion()
+
+    return `${CACHE_PREFIX}-${version}`
+}
+
+async function appVersion() {
+    try {
+        const response = await fetch(`${MANIFEST_URL}?v=${Date.now()}`, {cache: 'no-store'})
+        const text = await response.text()
+        const hash = await sha256(text)
+
+        return hash.slice(0, 16)
+    } catch {
+        return 'runtime'
+    }
+}
+
+async function sha256(text) {
+    const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
+
+    return [...new Uint8Array(buffer)]
+        .map(byte => byte.toString(16).padStart(2, '0'))
+        .join('')
+}
+
+async function appShellAssets() {
+    try {
+        const response = await fetch(`${MANIFEST_URL}?v=${Date.now()}`, {cache: 'no-store'})
+
+        if (!response.ok) {
+            return []
+        }
+
+        const manifest = await response.json()
+        const assets = new Set([MANIFEST_URL])
+
+        Object.values(manifest).forEach(entry => {
+            collectManifestEntryAssets(entry, assets)
+        })
+
+        return [...assets]
+    } catch {
+        return [MANIFEST_URL]
+    }
+}
+
+function collectManifestEntryAssets(entry, assets) {
+    if (!entry || typeof entry !== 'object') {
+        return
+    }
+
+    if (entry.file) {
+        assets.add(`/${entry.file}`)
+    }
+
+    ;['css', 'assets'].forEach(key => {
+        ;(entry[key] || []).forEach(asset => assets.add(`/${asset}`))
+    })
+}
 
 function shouldSkipRequest(request) {
     const url = new URL(request.url)
@@ -133,9 +216,105 @@ async function putIfOk(request, response) {
         return
     }
 
-    const cache = await caches.open(CACHE_NAME)
+    const cache = await caches.open(await currentCacheName())
 
     await cache.put(request, response)
+}
+
+async function queueOfflineTask(task) {
+    if (!task?.id || !task?.listId || !task?.title) {
+        return
+    }
+
+    const db = await openOfflineTasksDb()
+
+    await transactionPromise(db, OFFLINE_TASKS_STORE, 'readwrite', store => {
+        store.put(task)
+    })
+
+    await registerOfflineTasksSync()
+}
+
+async function removeOfflineTask(taskId) {
+    if (!taskId) {
+        return
+    }
+
+    const db = await openOfflineTasksDb()
+
+    await transactionPromise(db, OFFLINE_TASKS_STORE, 'readwrite', store => {
+        store.delete(taskId)
+    })
+}
+
+async function registerOfflineTasksSync() {
+    if (!self.registration.sync) {
+        return
+    }
+
+    await self.registration.sync.register(OFFLINE_TASKS_SYNC).catch(() => null)
+}
+
+async function syncOfflineTasks() {
+    const db = await openOfflineTasksDb()
+    const tasks = await transactionPromise(db, OFFLINE_TASKS_STORE, 'readonly', store => requestPromise(store.getAll()))
+
+    for (const task of tasks) {
+        const response = await fetch(`/lists/${task.listId}/tasks`, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': task.csrfToken || '',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: JSON.stringify({
+                title: task.title,
+            }),
+        })
+
+        if (!response.ok) {
+            throw new Error('Offline task sync failed')
+        }
+
+        await removeOfflineTask(task.id)
+    }
+}
+
+function openOfflineTasksDb() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(OFFLINE_TASKS_DB, 1)
+
+        request.onupgradeneeded = () => {
+            const db = request.result
+
+            if (!db.objectStoreNames.contains(OFFLINE_TASKS_STORE)) {
+                db.createObjectStore(OFFLINE_TASKS_STORE, {keyPath: 'id'})
+            }
+        }
+
+        request.onsuccess = () => resolve(request.result)
+        request.onerror = () => reject(request.error)
+    })
+}
+
+function transactionPromise(db, storeName, mode, callback) {
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(storeName, mode)
+        const result = callback(transaction.objectStore(storeName))
+
+        transaction.oncomplete = () => resolve(result)
+        transaction.onerror = () => reject(transaction.error)
+        transaction.onabort = () => reject(transaction.error)
+    })
+}
+
+function requestPromise(request) {
+    return new Promise((resolve, reject) => {
+        request.onsuccess = () => resolve(request.result)
+        request.onerror = () => reject(request.error)
+    })
 }
 
 function offlineHtmlResponse() {

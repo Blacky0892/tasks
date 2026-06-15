@@ -57,7 +57,7 @@ defineEmits([
     'toggle-menu',
     'start-long-press',
     'clear-long-press',
-    'clear-done',
+    'open-actions',
 ])
 </script>
 
@@ -85,9 +85,10 @@ defineEmits([
                 type="button"
                 class="home-soft-button min-h-12 shrink-0 rounded-[1.5rem] px-4 py-3 text-sm font-bold disabled:opacity-50"
                 :disabled="!canClearDone || isClearingDone"
-                @click="$emit('clear-done')"
+                aria-label="Действия с выполненными задачами"
+                @click="$emit('open-actions')"
             >
-                {{ isClearingDone ? 'Очищаю…' : 'Очистить' }}
+                {{ isClearingDone ? '…' : '⋯' }}
             </button>
         </div>
 

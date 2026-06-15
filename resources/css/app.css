@@ -426,7 +426,7 @@ input {
 
     .home-task-composer {
         top: 0.5rem;
-        bottom: calc(5.8rem + env(safe-area-inset-bottom));
+        bottom: calc(5.8rem + env(safe-area-inset-bottom) + var(--keyboard-inset, 0px));
     }
 
     .home-create-dock {
@@ -571,7 +571,7 @@ input {
     }
 
     .home-task-composer {
-        bottom: calc(5.8rem + env(safe-area-inset-bottom));
+        bottom: calc(5.8rem + env(safe-area-inset-bottom) + var(--keyboard-inset, 0px));
         margin-bottom: 0.75rem;
     }
 
@@ -611,7 +611,7 @@ input {
         left: 0.75rem;
         right: 0.75rem;
         top: auto !important;
-        bottom: calc(5.8rem + env(safe-area-inset-bottom));
+        bottom: calc(5.8rem + env(safe-area-inset-bottom) + var(--keyboard-inset, 0px));
         z-index: 35;
         margin: 0 auto;
         max-width: calc(100% - 1.5rem);

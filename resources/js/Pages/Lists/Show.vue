@@ -37,11 +37,36 @@ const {
 } = useOfflineTaskQueue(props.list.id)
 
 const updateAvailable = ref(false)
+const pwaUpdateState = ref('idle')
+const pwaUpdateTitle = computed(() => {
+    if (pwaUpdateState.value === 'updating') {
+        return 'Обновляем…'
+    }
+
+    if (pwaUpdateState.value === 'done') {
+        return 'Готово'
+    }
+
+    return 'Обновление готово'
+})
+const pwaUpdateDescription = computed(() => {
+    if (pwaUpdateState.value === 'updating') {
+        return 'Сохраняем состояние и применяем новую версию.'
+    }
+
+    if (pwaUpdateState.value === 'done') {
+        return 'Перезапускаем приложение.'
+    }
+
+    return 'Новая версия уже загружена.'
+})
 const localActiveTasks = ref([])
 const localDoneTasks = ref([])
 const showDoneTasks = ref(false)
 const showTaskComposer = ref(false)
 const showListSettings = ref(false)
+const showClearDoneConfirm = ref(false)
+const taskComposer = ref(null)
 const isIconPickerOpen = ref(false)
 const editingTaskId = ref(null)
 const editingTitle = ref('')
@@ -56,7 +81,10 @@ const longPressTriggered = ref(false)
 const remoteVersion = ref(null)
 const isCheckingRemoteChanges = ref(false)
 const isClearingDoneTasks = ref(false)
+const pendingClearDoneTasks = ref([])
+const clearDoneTimer = ref(null)
 let remoteSyncTimer = null
+let visualViewportCleanup = null
 
 const form = useForm({
     title: '',
@@ -72,9 +100,13 @@ const activeTasks = computed(() => {
     return localActiveTasks.value.filter(task => !pendingDeleteIds.value.includes(task.id))
 })
 
-// Формирует список выполненных задач, исключая задачи, ожидающие подтверждённого удаления.
+// Формирует список выполненных задач, исключая задачи, ожидающие подтверждённого удаления или очистки истории.
+const pendingClearDoneIds = computed(() => pendingClearDoneTasks.value.map(task => task.id))
+
 const doneTasks = computed(() => {
-    return localDoneTasks.value.filter(task => !pendingDeleteIds.value.includes(task.id))
+    return localDoneTasks.value.filter(task => {
+        return !pendingDeleteIds.value.includes(task.id) && !pendingClearDoneIds.value.includes(task.id)
+    })
 })
 
 const doneTasksLimit = ref(3)
@@ -139,7 +171,9 @@ onMounted(() => {
 
     window.addEventListener('online', handleOnline)
     window.addEventListener('pwa-update-available', handlePwaUpdateAvailable)
+    window.addEventListener('pwa-update-state', handlePwaUpdateState)
     document.addEventListener('visibilitychange', handleVisibilityChange)
+    visualViewportCleanup = bindKeyboardViewport()
 })
 
 // При уходе со страницы очищает таймеры и снимает глобальные обработчики событий.
@@ -149,9 +183,20 @@ onUnmounted(() => {
         remoteSyncTimer = null
     }
 
+    if (clearDoneTimer.value) {
+        window.clearTimeout(clearDoneTimer.value)
+        clearDoneTimer.value = null
+    }
+
     window.removeEventListener('online', handleOnline)
     window.removeEventListener('pwa-update-available', handlePwaUpdateAvailable)
+    window.removeEventListener('pwa-update-state', handlePwaUpdateState)
     document.removeEventListener('visibilitychange', handleVisibilityChange)
+
+    if (visualViewportCleanup) {
+        visualViewportCleanup()
+        visualViewportCleanup = null
+    }
 })
 
 // Следит за восстановлением сети и запускает синхронизацию офлайн-задач.
@@ -192,10 +237,12 @@ function syncLocalTasks(tasks) {
     localDoneTasks.value = tasks.filter(task => task.is_done)
 }
 
-// Перезагружает PWA: активирует ожидающий service worker или обновляет страницу обычным способом.
+// Применяет ожидающее обновление service worker с промежуточными состояниями UI.
 function reloadApp() {
-    if (window.__pwaWaitingWorker) {
-        window.__pwaWaitingWorker.postMessage({type: 'SKIP_WAITING'})
+    pwaUpdateState.value = 'updating'
+
+    if (window.__applyPwaUpdate) {
+        window.__applyPwaUpdate()
         return
     }
 
@@ -207,6 +254,10 @@ function reloadApp() {
 // Открывает форму добавления задачи.
 function focusAddTaskInput() {
     showTaskComposer.value = true
+
+    nextTick(() => {
+        taskComposer.value?.focus()
+    })
 }
 
 // Закрывает форму добавления задачи, если сейчас не идёт отправка данных.
@@ -223,6 +274,7 @@ function closeTaskComposer() {
 // Создаёт новую задачу: онлайн отправляет на сервер, офлайн кладёт в локальную очередь.
 function createTask() {
     const title = form.title.trim()
+    const shouldCloseAfterCreate = title.split(/\r?\n/).filter(line => line.trim()).length > 1
 
     if (!title || form.processing) {
         return
@@ -235,7 +287,13 @@ function createTask() {
 
         form.reset()
         form.clearErrors()
-        showTaskComposer.value = false
+
+        if (shouldCloseAfterCreate) {
+            showTaskComposer.value = false
+            return
+        }
+
+        taskComposer.value?.focus()
 
         return
     }
@@ -248,7 +306,13 @@ function createTask() {
             vibrateLight()
             form.reset()
             form.clearErrors()
-            showTaskComposer.value = false
+
+            if (shouldCloseAfterCreate) {
+                showTaskComposer.value = false
+                return
+            }
+
+            taskComposer.value?.focus()
         },
     })
 }
@@ -337,29 +401,60 @@ function removePendingDelete(taskId) {
     deleteTimers.delete(taskId)
 }
 
-// Удаляет все выполненные задачи текущего списка после подтверждения.
-function clearDoneTasks() {
+// Открывает меню действий для блока выполненных задач.
+function openDoneTasksActions() {
     if (!isOnline.value || isClearingDoneTasks.value || doneTasks.value.length === 0) {
         return
     }
 
-    if (!confirm('Очистить все выполненные задачи? Отменить это действие не получится.')) {
+    openedTaskMenuId.value = null
+    showClearDoneConfirm.value = true
+}
+
+// Планирует очистку выполненных задач и показывает undo-тост до фактического удаления на сервере.
+function clearDoneTasks() {
+    if (!isOnline.value || isClearingDoneTasks.value || doneTasks.value.length === 0 || clearDoneTimer.value) {
         return
     }
 
-    openedTaskMenuId.value = null
+    pendingClearDoneTasks.value = [...doneTasks.value]
+    showClearDoneConfirm.value = false
+    doneTasksLimit.value = 3
+    vibrateLight()
+
+    clearDoneTimer.value = window.setTimeout(() => {
+        confirmClearDoneTasks()
+    }, 4500)
+}
+
+// Отменяет запланированную очистку истории выполненных задач.
+function undoClearDoneTasks() {
+    if (clearDoneTimer.value) {
+        window.clearTimeout(clearDoneTimer.value)
+        clearDoneTimer.value = null
+    }
+
+    pendingClearDoneTasks.value = []
+}
+
+// Выполняет отложенную очистку выполненных задач на сервере.
+function confirmClearDoneTasks() {
+    clearDoneTimer.value = null
+
+    if (!isOnline.value || pendingClearDoneTasks.value.length === 0) {
+        pendingClearDoneTasks.value = []
+        return
+    }
+
     markHomeNeedsRefresh()
     isClearingDoneTasks.value = true
 
     router.delete(route('tasks.clear-done', props.list.id), {
         preserveScroll: true,
-        onSuccess: () => {
-            vibrateLight()
-            showDoneTasks.value = false
-            doneTasksLimit.value = 3
-        },
         onFinish: () => {
             isClearingDoneTasks.value = false
+            showClearDoneConfirm.value = false
+            pendingClearDoneTasks.value = []
         },
     })
 }
@@ -571,6 +666,28 @@ function archiveList() {
     router.delete(route('lists.destroy', props.list.id))
 }
 
+// Поддерживает правильный отступ fixed-композера над iOS keyboard viewport.
+function bindKeyboardViewport() {
+    if (!window.visualViewport) {
+        return null
+    }
+
+    const updateKeyboardInset = () => {
+        const inset = Math.max(0, window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop)
+        document.documentElement.style.setProperty('--keyboard-inset', `${inset}px`)
+    }
+
+    updateKeyboardInset()
+    window.visualViewport.addEventListener('resize', updateKeyboardInset)
+    window.visualViewport.addEventListener('scroll', updateKeyboardInset)
+
+    return () => {
+        window.visualViewport.removeEventListener('resize', updateKeyboardInset)
+        window.visualViewport.removeEventListener('scroll', updateKeyboardInset)
+        document.documentElement.style.removeProperty('--keyboard-inset')
+    }
+}
+
 // PWA
 
 // Обрабатывает восстановление сети: синхронизирует очередь и проверяет свежие изменения.
@@ -580,8 +697,15 @@ function handleOnline() {
 }
 
 // Показывает уведомление о доступной новой версии PWA.
-function handlePwaUpdateAvailable() {
+function handlePwaUpdateAvailable(event) {
     updateAvailable.value = true
+    pwaUpdateState.value = event.detail?.state ?? 'ready'
+}
+
+// Синхронизирует более подробные состояния обновления service worker с toast в UI.
+function handlePwaUpdateState(event) {
+    updateAvailable.value = true
+    pwaUpdateState.value = event.detail?.state ?? 'ready'
 }
 
 // Обрабатывает нижнюю плавающую кнопку добавления задачи.
@@ -599,7 +723,7 @@ async function checkRemoteChanges() {
         return
     }
 
-    if (form.processing || listForm.processing || isSyncingOfflineTasks.value) {
+    if (form.processing || listForm.processing || isSyncingOfflineTasks.value || clearDoneTimer.value) {
         return
     }
 
@@ -757,6 +881,7 @@ syncLocalTasks(props.list.tasks)
             </header>
 
             <TaskComposer
+                ref="taskComposer"
                 v-model="form.title"
                 :show="showTaskComposer"
                 :processing="form.processing"
@@ -814,7 +939,7 @@ syncLocalTasks(props.list.tasks)
                                 Режим сортировки задач
                             </div>
                             <div class="home-muted mt-1 text-xs font-semibold">
-                                Тяните задачи за ручку слева.
+                                Тяните задачи за кнопку слева.
                             </div>
                         </div>
 
@@ -886,7 +1011,7 @@ syncLocalTasks(props.list.tasks)
                 @toggle-menu="toggleTaskMenu"
                 @start-long-press="startTaskTitleLongPress"
                 @clear-long-press="clearLongPress"
-                @clear-done="clearDoneTasks"
+                @open-actions="openDoneTasksActions"
             />
         </div>
 
@@ -898,6 +1023,61 @@ syncLocalTasks(props.list.tasks)
         >
             ＋
         </button>
+
+
+        <Transition
+            enter-active-class="transition duration-200 ease-out"
+            enter-from-class="translate-y-5 opacity-0"
+            enter-to-class="translate-y-0 opacity-100"
+            leave-active-class="transition duration-150 ease-in"
+            leave-from-class="translate-y-0 opacity-100"
+            leave-to-class="translate-y-5 opacity-0"
+        >
+            <div
+                v-if="showClearDoneConfirm"
+                class="fixed inset-0 z-50 flex bg-black/10 px-3 pb-[max(env(safe-area-inset-bottom),12px)] pt-10 backdrop-blur-[2px] sm:items-center sm:justify-center sm:p-4"
+                @click="showClearDoneConfirm = false"
+            >
+                <div
+                    class="home-action-sheet mt-auto w-full max-w-xl rounded-[2rem] p-2 sm:mt-0 sm:p-3"
+                    @click.stop
+                >
+                    <div class="px-3 pb-3 pt-3">
+                        <div class="home-subtle text-xs font-bold uppercase tracking-wide">
+                            Очистка истории
+                        </div>
+
+                        <div class="home-title mt-1 text-lg font-black">
+                            Очистить {{ doneTasks.length }} выполненных задач?
+                        </div>
+
+                        <div class="home-muted mt-2 text-sm font-semibold leading-relaxed">
+                            Это действие уберёт историю выполненных пунктов из списка.
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <button
+                            type="button"
+                            class="home-soft-button w-full rounded-[1.35rem] px-4 py-4 text-base font-semibold"
+                            :disabled="isClearingDoneTasks"
+                            @click="showClearDoneConfirm = false"
+                        >
+                            Отмена
+                        </button>
+
+                        <button
+                            type="button"
+                            class="home-action-sheet-item home-action-sheet-danger w-full rounded-[1.35rem] px-4 py-4 text-center text-base font-semibold"
+                            :disabled="isClearingDoneTasks || !isOnline"
+                            @click="clearDoneTasks"
+                        >
+                            Очистить
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </Transition>
 
         <Transition
             enter-active-class="transition duration-200 ease-out"
@@ -1090,11 +1270,18 @@ syncLocalTasks(props.list.tasks)
         />
 
         <HomeToast
+            :show="pendingClearDoneTasks.length > 0"
+            title="История очищена"
+            button-text="Отменить"
+            @action="undoClearDoneTasks"
+        />
+
+        <HomeToast
             :show="updateAvailable"
-            title="Доступна новая версия"
-            description="Обновите приложение, чтобы применить изменения."
-            button-text="Обновить"
-            @action="reloadApp"
+            :title="pwaUpdateTitle"
+            :description="pwaUpdateDescription"
+            :button-text="pwaUpdateState === 'ready' ? 'Обновить' : '…'"
+            @action="pwaUpdateState === 'ready' ? reloadApp() : null"
         />
     </main>
 </template>

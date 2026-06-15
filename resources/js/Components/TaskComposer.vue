@@ -1,4 +1,6 @@
 <script setup>
+import {nextTick, ref, watch} from 'vue'
+
 // Создаёт двустороннюю модель для текста новой задачи.
 const model = defineModel({
     type: String,
@@ -36,6 +38,30 @@ defineProps({
 
 // Объявляет события отправки формы и закрытия композера.
 defineEmits(['submit', 'close'])
+
+const textarea = ref(null)
+
+function focusTextarea() {
+    nextTick(() => {
+        textarea.value?.focus({preventScroll: true})
+    })
+}
+
+watch(
+    () => model.value,
+    () => {
+        if (!textarea.value) {
+            return
+        }
+
+        textarea.value.style.height = 'auto'
+        textarea.value.style.height = `${textarea.value.scrollHeight}px`
+    },
+)
+
+defineExpose({
+    focus: focusTextarea,
+})
 </script>
 
 <template>
@@ -84,6 +110,7 @@ defineEmits(['submit', 'close'])
 
             <div class="flex items-stretch gap-2">
                 <textarea
+                    ref="textarea"
                     v-model="model"
                     class="home-input min-h-[72px] flex-1 resize-none rounded-[1.5rem] border-transparent px-4 py-4 text-[17px] leading-snug sm:min-h-[52px] sm:py-3 sm:text-base"
                     placeholder="Новая задача или список строк..."

@@ -28,6 +28,27 @@ createInertiaApp({
 
 window.__pwaInstallPrompt = null;
 window.__pwaWaitingWorker = null;
+window.__pwaRegistration = null;
+
+function dispatchPwaUpdateState(state, detail = {}) {
+    window.dispatchEvent(new CustomEvent('pwa-update-state', {
+        detail: {
+            state,
+            ...detail,
+        },
+    }));
+}
+
+window.__applyPwaUpdate = () => {
+    if (!window.__pwaWaitingWorker) {
+        window.location.reload();
+        return;
+    }
+
+    sessionStorage.setItem('pwa:update-state', 'done');
+    dispatchPwaUpdateState('updating');
+    window.__pwaWaitingWorker.postMessage({ type: 'SKIP_WAITING' });
+};
 
 window.addEventListener('beforeinstallprompt', event => {
     event.preventDefault();
@@ -43,6 +64,7 @@ window.addEventListener('beforeinstallprompt', event => {
 window.addEventListener('appinstalled', () => {
     window.__pwaInstallPrompt = null;
     window.__pwaWaitingWorker = null;
+    window.__pwaRegistration = null;
     window.dispatchEvent(new CustomEvent('pwa-app-installed'));
 });
 
@@ -55,12 +77,28 @@ if ('serviceWorker' in navigator) {
         }
 
         refreshing = true;
-        window.location.reload();
+        dispatchPwaUpdateState('done');
+
+        window.setTimeout(() => {
+            window.location.reload();
+        }, 600);
     });
 
     window.addEventListener('load', async () => {
         try {
+            const previousUpdateState = sessionStorage.getItem('pwa:update-state');
+
+            if (previousUpdateState === 'done') {
+                sessionStorage.removeItem('pwa:update-state');
+                dispatchPwaUpdateState('done');
+            }
+
             const registration = await navigator.serviceWorker.register('/sw.js');
+            window.__pwaRegistration = registration;
+
+            if ('sync' in registration) {
+                await registration.sync.register('sync-offline-tasks').catch(() => null);
+            }
 
             registration.addEventListener('updatefound', () => {
                 const newWorker = registration.installing;
@@ -68,8 +106,10 @@ if ('serviceWorker' in navigator) {
                 newWorker?.addEventListener('statechange', () => {
                     if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                         window.__pwaWaitingWorker = newWorker;
+                        dispatchPwaUpdateState('ready', { registration, worker: newWorker });
                         window.dispatchEvent(new CustomEvent('pwa-update-available', {
                             detail: {
+                                state: 'ready',
                                 registration,
                                 worker: newWorker,
                             },

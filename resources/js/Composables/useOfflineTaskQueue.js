@@ -30,6 +30,51 @@ function writeTasks(listId, tasks) {
 }
 
 // Создаёт временный id для задачи, добавленной без сети, до получения настоящего id с сервера.
+
+function csrfToken() {
+    return document.querySelector('meta[name="csrf-token"]')?.content ?? ''
+}
+
+async function registerBackgroundSync() {
+    const registration = window.__pwaRegistration ?? await navigator.serviceWorker?.ready?.catch(() => null)
+
+    if (!registration || !('sync' in registration)) {
+        return
+    }
+
+    await registration.sync.register('sync-offline-tasks').catch(() => null)
+}
+
+function queueTaskForServiceWorker(task, listId) {
+    if (!navigator.serviceWorker?.controller) {
+        return
+    }
+
+    navigator.serviceWorker.controller.postMessage({
+        type: 'QUEUE_OFFLINE_TASK',
+        task: {
+            id: task.id,
+            listId,
+            title: task.title,
+            csrfToken: csrfToken(),
+            created_at: task.created_at,
+        },
+    })
+
+    registerBackgroundSync()
+}
+
+function removeTaskFromServiceWorkerQueue(taskId) {
+    if (!navigator.serviceWorker?.controller) {
+        return
+    }
+
+    navigator.serviceWorker.controller.postMessage({
+        type: 'REMOVE_OFFLINE_TASK',
+        taskId,
+    })
+}
+
 function makeTempId() {
     if (window.crypto?.randomUUID) {
         return `offline-${window.crypto.randomUUID()}`
@@ -74,6 +119,7 @@ export function useOfflineTaskQueue(listId) {
 
         writeTasks(listId, tasks)
         offlineTasks.value = tasks
+        queueTaskForServiceWorker(task, listId)
 
         return task
     }
@@ -84,6 +130,7 @@ export function useOfflineTaskQueue(listId) {
 
         writeTasks(listId, tasks)
         offlineTasks.value = tasks
+        removeTaskFromServiceWorkerQueue(taskId)
     }
 
     // Обновляет отдельную офлайн-задачу, например чтобы отметить её как синхронизирующуюся.

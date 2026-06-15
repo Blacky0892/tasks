@@ -68,6 +68,29 @@ const showCreateForm = ref(false)
 const isCreateIconPickerOpen = ref(false)
 const listReorderMode = ref(false)
 const updateAvailable = ref(false)
+const pwaUpdateState = ref('idle')
+const pwaUpdateTitle = computed(() => {
+    if (pwaUpdateState.value === 'updating') {
+        return 'Обновляем…'
+    }
+
+    if (pwaUpdateState.value === 'done') {
+        return 'Готово'
+    }
+
+    return 'Обновление готово'
+})
+const pwaUpdateDescription = computed(() => {
+    if (pwaUpdateState.value === 'updating') {
+        return 'Сохраняем состояние и применяем новую версию.'
+    }
+
+    if (pwaUpdateState.value === 'done') {
+        return 'Перезапускаем приложение.'
+    }
+
+    return 'Новая версия уже загружена.'
+})
 const canInstallApp = ref(false)
 const installPrompt = ref(null)
 const isStandaloneApp = ref(false)
@@ -81,8 +104,15 @@ function detectStandaloneApp() {
 }
 
 // Обрабатывает событие доступного обновления PWA и показывает кнопку перезагрузки приложения.
-function handlePwaUpdateAvailable() {
+function handlePwaUpdateAvailable(event) {
     updateAvailable.value = true
+    pwaUpdateState.value = event.detail?.state ?? 'ready'
+}
+
+// Синхронизирует более подробные состояния обновления service worker с toast в UI.
+function handlePwaUpdateState(event) {
+    updateAvailable.value = true
+    pwaUpdateState.value = event.detail?.state ?? 'ready'
 }
 
 // Сохраняет браузерный prompt установки PWA, если приложение ещё не установлено.
@@ -119,10 +149,12 @@ async function installApp() {
     }
 }
 
-// Применяет ожидающее обновление service worker или перезагружает страницу вручную.
+// Применяет ожидающее обновление service worker с промежуточными состояниями UI.
 function reloadApp() {
-    if (window.__pwaWaitingWorker) {
-        window.__pwaWaitingWorker.postMessage({ type: 'SKIP_WAITING' })
+    pwaUpdateState.value = 'updating'
+
+    if (window.__applyPwaUpdate) {
+        window.__applyPwaUpdate()
         return
     }
 
@@ -241,6 +273,7 @@ onMounted(() => {
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
     window.addEventListener('pwa-update-available', handlePwaUpdateAvailable)
+    window.addEventListener('pwa-update-state', handlePwaUpdateState)
     window.addEventListener('pwa-install-available', handleInstallAvailable)
     window.addEventListener('pwa-app-installed', handleAppInstalled)
 })
@@ -257,6 +290,7 @@ onUnmounted(() => {
     document.removeEventListener('visibilitychange', handleVisibilityChange)
 
     window.removeEventListener('pwa-update-available', handlePwaUpdateAvailable)
+    window.removeEventListener('pwa-update-state', handlePwaUpdateState)
     window.removeEventListener('pwa-install-available', handleInstallAvailable)
     window.removeEventListener('pwa-app-installed', handleAppInstalled)
 })
@@ -567,7 +601,7 @@ function saveListsOrder() {
                                 Режим сортировки списков
                             </div>
                             <div class="home-muted mt-1 text-xs font-semibold">
-                                Тяните карточки за ручку слева.
+                                Тяните карточки за кнопку слева.
                             </div>
                         </div>
 
@@ -812,19 +846,19 @@ function saveListsOrder() {
                 <div class="home-toast mx-auto flex max-w-xl items-center justify-between gap-3 rounded-[1.5rem] px-4 py-3">
                     <div class="min-w-0">
                         <div class="text-sm font-semibold">
-                            Доступна новая версия
+                            {{ pwaUpdateTitle }}
                         </div>
                         <div class="truncate text-xs text-white/70">
-                            Обновите приложение, чтобы применить изменения.
+                            {{ pwaUpdateDescription }}
                         </div>
                     </div>
 
                     <button
                         type="button"
                         class="shrink-0 rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white transition active:scale-95"
-                        @click="reloadApp"
+                        @click="pwaUpdateState === 'ready' ? reloadApp() : null"
                     >
-                        Обновить
+                        {{ pwaUpdateState === 'ready' ? 'Обновить' : '…' }}
                     </button>
                 </div>
             </div>
