@@ -233,7 +233,7 @@ function updateNewAttachments(files) {
             reorderMode ? 'border-[var(--home-focus)] bg-[var(--home-surface-soft)]' : '',
         ]"
     >
-        <div class="flex min-h-[60px] items-center gap-3">
+        <div class="flex min-h-[60px] flex-wrap items-center gap-3 sm:flex-nowrap">
             <button
                 v-if="reorderMode"
                 type="button"
@@ -262,12 +262,12 @@ function updateNewAttachments(files) {
 
             <div
                 v-if="isEditing"
-                class="min-w-0 flex-1 space-y-2"
+                class="order-last min-w-0 basis-full space-y-2 sm:order-none sm:flex-1 sm:basis-0"
             >
                 <textarea
                     ref="editingInput"
                     :value="editingTitle"
-                    class="home-input min-h-[68px] w-full resize-none rounded-2xl px-3 py-2 text-[17px] font-semibold leading-snug sm:min-h-[44px] sm:text-lg"
+                    class="home-input min-h-[68px] w-full max-w-full resize-none rounded-2xl px-3 py-2 text-[17px] font-semibold leading-snug sm:min-h-[44px] sm:text-lg"
                     rows="2"
                     @input="emit('update:editingTitle', $event.target.value)"
                     @keydown.ctrl.enter.prevent="emit('save-edit', task)"
@@ -277,7 +277,7 @@ function updateNewAttachments(files) {
 
                 <textarea
                     :value="editingNote"
-                    class="home-input min-h-[82px] w-full resize-none rounded-2xl px-3 py-2 text-sm leading-relaxed"
+                    class="home-input min-h-[82px] w-full max-w-full resize-none rounded-2xl px-3 py-2 text-sm leading-relaxed"
                     placeholder="Заметка…"
                     rows="3"
                     @input="emit('update:editingNote', $event.target.value)"
@@ -286,7 +286,7 @@ function updateNewAttachments(files) {
                     @keydown.esc.prevent="emit('cancel-edit')"
                 />
 
-                <div class="grid gap-2 rounded-2xl bg-white/35 p-2 ring-1 ring-[var(--home-border)] sm:grid-cols-3">
+                <div class="grid min-w-0 gap-2 rounded-2xl bg-white/35 p-2 ring-1 ring-[var(--home-border)] md:grid-cols-3">
                     <label class="home-muted px-1 text-xs font-bold uppercase tracking-wide">
                         Срок
                         <input
