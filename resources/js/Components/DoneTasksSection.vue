@@ -29,6 +29,18 @@ defineProps({
         type: String,
         default: '',
     },
+    editingNote: {
+        type: String,
+        default: '',
+    },
+    editingAttachments: {
+        type: Array,
+        default: () => [],
+    },
+    editingNewAttachments: {
+        type: Array,
+        default: () => [],
+    },
     openedTaskMenuId: {
         type: [Number, String, null],
         default: null,
@@ -49,6 +61,9 @@ defineEmits([
     'toggle-show',
     'show-more',
     'update:editing-title',
+    'update:editing-note',
+    'update:editing-attachments',
+    'update:editing-new-attachments',
     'toggle-task',
     'edit',
     'save-edit',
@@ -104,8 +119,14 @@ defineEmits([
                 variant="done"
                 :is-editing="editingTaskId === task.id"
                 :editing-title="editingTitle"
+                :editing-note="editingNote"
+                :editing-attachments="editingAttachments"
+                :editing-new-attachments="editingNewAttachments"
                 :is-menu-open="openedTaskMenuId === task.id"
                 @update:editing-title="$emit('update:editing-title', $event)"
+                @update:editing-note="$emit('update:editing-note', $event)"
+                @update:editing-attachments="$emit('update:editing-attachments', $event)"
+                @update:editing-new-attachments="$emit('update:editing-new-attachments', $event)"
                 @toggle="$emit('toggle-task', $event)"
                 @edit="$emit('edit', $event)"
                 @save-edit="$emit('save-edit', $event)"

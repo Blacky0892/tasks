@@ -56,6 +56,7 @@ function queueTaskForServiceWorker(task, listId) {
             id: task.id,
             listId,
             title: task.title,
+            note: task.note ?? '',
             csrfToken: csrfToken(),
             created_at: task.created_at,
         },
@@ -95,10 +96,11 @@ export function useOfflineTaskQueue(listId) {
     }
 
     // Добавляет новую задачу в локальную офлайн-очередь и сразу возвращает её для отображения в интерфейсе.
-    function addOfflineTask(title, user = null) {
+    function addOfflineTask(title, user = null, note = '') {
         const task = {
             id: makeTempId(),
             title: title.trim(),
+            note: note.trim(),
             is_done: false,
             creator: user
                 ? {
@@ -181,6 +183,7 @@ export function useOfflineTaskQueue(listId) {
 
         router.post(route('tasks.store', listId), {
             title: task.title,
+            note: task.note ?? '',
         }, {
             preserveScroll: true,
             preserveState: true,

@@ -271,6 +271,7 @@ async function syncOfflineTasks() {
             },
             body: JSON.stringify({
                 title: task.title,
+                note: task.note || '',
             }),
         })
 

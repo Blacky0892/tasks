@@ -6,6 +6,7 @@ use App\Models\FamilyList;
 use App\Models\Task;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Контроллер для управления задачами внутри семейных списков.
@@ -25,6 +26,9 @@ class TaskController extends Controller
     {
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:4000'],
+            'note' => ['nullable', 'string', 'max:10000'],
+            'attachments' => ['nullable', 'array', 'max:5'],
+            'attachments.*' => ['file', 'max:10240'],
         ]);
 
         $titles = collect(preg_split('/\R/u', $validated['title']))
@@ -38,9 +42,18 @@ class TaskController extends Controller
             ->where('is_done', false)
             ->max('sort_order');
 
+        $note = isset($validated['note']) ? trim($validated['note']) : null;
+        $note = $note !== '' ? $note : null;
+
+        $attachments = $titles->count() === 1
+            ? $this->storeAttachments($request)
+            : [];
+
         foreach ($titles as $index => $title) {
             $list->tasks()->create([
                 'title' => mb_substr($title, 0, 255),
+                'note' => $titles->count() === 1 ? $note : null,
+                'attachments' => $attachments,
                 'sort_order' => $maxSortOrder + $index + 1,
                 'created_by' => $request->user()->id,
             ]);
@@ -77,7 +90,7 @@ class TaskController extends Controller
     }
 
     /**
-     * Обновляет название задачи.
+     * Обновляет название и заметку задачи.
      *
      * Валидирует новое название и сохраняет его в существующей записи задачи.
      */
@@ -85,10 +98,30 @@ class TaskController extends Controller
     {
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
+            'note' => ['nullable', 'string', 'max:10000'],
+            'attachments' => ['nullable', 'array', 'max:5'],
+            'attachments.*' => ['file', 'max:10240'],
+            'kept_attachments' => ['nullable', 'array'],
+            'kept_attachments.*.name' => ['required_with:kept_attachments', 'string', 'max:255'],
+            'kept_attachments.*.path' => ['required_with:kept_attachments', 'string', 'max:1000'],
+            'kept_attachments.*.url' => ['required_with:kept_attachments', 'string', 'max:2000'],
+            'kept_attachments.*.mime' => ['nullable', 'string', 'max:255'],
+            'kept_attachments.*.size' => ['nullable', 'integer']
         ]);
+
+        $note = isset($validated['note']) ? trim($validated['note']) : null;
+
+        $attachments = [
+            ...($validated['kept_attachments'] ?? ($task->attachments ?? [])),
+            ...$this->storeAttachments($request),
+        ];
+
+        $this->deleteRemovedAttachments($task->attachments ?? [], $attachments);
 
         $task->update([
             'title' => $validated['title'],
+            'note' => $note !== '' ? $note : null,
+            'attachments' => $attachments,
         ]);
 
         return back();
@@ -120,6 +153,49 @@ class TaskController extends Controller
             ->delete();
 
         return back();
+    }
+
+    /**
+     * Сохраняет приложенные к задаче файлы в публичный storage и возвращает метаданные.
+     */
+    private function storeAttachments(Request $request): array
+    {
+        if (!$request->hasFile('attachments')) {
+            return [];
+        }
+
+        return collect($request->file('attachments'))
+            ->filter(fn ($file) => $file->isValid())
+            ->map(function ($file) {
+                $path = $file->store('task-attachments', 'public');
+
+                return [
+                    'name' => $file->getClientOriginalName(),
+                    'path' => $path,
+                    'url' => Storage::disk('public')->url($path),
+                    'mime' => $file->getClientMimeType(),
+                    'size' => $file->getSize(),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Удаляет файлы, которые пользователь убрал из списка вложений задачи.
+     */
+    private function deleteRemovedAttachments(array $oldAttachments, array $newAttachments): void
+    {
+        $newPaths = collect($newAttachments)
+            ->pluck('path')
+            ->filter()
+            ->all();
+
+        collect($oldAttachments)
+            ->pluck('path')
+            ->filter()
+            ->reject(fn ($path) => in_array($path, $newPaths, true))
+            ->each(fn ($path) => Storage::disk('public')->delete($path));
     }
 
     /**

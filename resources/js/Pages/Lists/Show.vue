@@ -70,6 +70,9 @@ const taskComposer = ref(null)
 const isIconPickerOpen = ref(false)
 const editingTaskId = ref(null)
 const editingTitle = ref('')
+const editingNote = ref('')
+const editingAttachments = ref([])
+const editingNewAttachments = ref([])
 const openedTaskMenuId = ref(null)
 const taskReorderMode = ref(false)
 const pendingDeleteIds = ref([])
@@ -88,6 +91,8 @@ let visualViewportCleanup = null
 
 const form = useForm({
     title: '',
+    note: '',
+    attachments: [],
 })
 
 const listForm = useForm({
@@ -272,6 +277,10 @@ function closeTaskComposer() {
 }
 
 // Создаёт новую задачу: онлайн отправляет на сервер, офлайн кладёт в локальную очередь.
+function updateComposerAttachments(files) {
+    form.attachments = files
+}
+
 function createTask() {
     const title = form.title.trim()
     const shouldCloseAfterCreate = title.split(/\r?\n/).filter(line => line.trim()).length > 1
@@ -282,7 +291,7 @@ function createTask() {
 
     if (!isOnline.value) {
         markHomeNeedsRefresh()
-        addOfflineTask(title, user.value)
+        addOfflineTask(title, user.value, form.note.trim())
         vibrateLight()
 
         form.reset()
@@ -470,6 +479,9 @@ function startEditTask(task) {
     openedTaskMenuId.value = null
     editingTaskId.value = task.id
     editingTitle.value = task.title
+    editingNote.value = task.note ?? ''
+    editingAttachments.value = [...(task.attachments ?? [])]
+    editingNewAttachments.value = []
 
     nextTick(() => {
         editingInput.value?.focus()
@@ -480,18 +492,30 @@ function startEditTask(task) {
 function cancelEditTask() {
     editingTaskId.value = null
     editingTitle.value = ''
+    editingNote.value = ''
+    editingAttachments.value = []
+    editingNewAttachments.value = []
 }
 
-// Сохраняет новое название задачи, если оно изменилось и доступна сеть.
+// Сохраняет новое название и заметку задачи, если они изменились и доступна сеть.
 function saveEditTask(task) {
     const title = editingTitle.value.trim()
+    const note = editingNote.value.trim()
+    const currentNote = task.note ?? ''
+    const currentAttachmentPaths = (task.attachments ?? []).map(attachment => attachment.path).join('|')
+    const editingAttachmentPaths = editingAttachments.value.map(attachment => attachment.path).join('|')
 
     if (!title) {
         cancelEditTask()
         return
     }
 
-    if (title === task.title) {
+    if (
+        title === task.title
+        && note === currentNote
+        && editingAttachmentPaths === currentAttachmentPaths
+        && editingNewAttachments.value.length === 0
+    ) {
         cancelEditTask()
         return
     }
@@ -505,8 +529,12 @@ function saveEditTask(task) {
 
     router.patch(route('tasks.update', task.id), {
         title,
+        note,
+        kept_attachments: editingAttachments.value,
+        attachments: editingNewAttachments.value,
     }, {
         preserveScroll: true,
+        forceFormData: true,
         onSuccess: () => {
             cancelEditTask()
         },
@@ -883,6 +911,7 @@ syncLocalTasks(props.list.tasks)
             <TaskComposer
                 ref="taskComposer"
                 v-model="form.title"
+                v-model:note="form.note"
                 :show="showTaskComposer"
                 :processing="form.processing"
                 :error="form.errors.title"
@@ -890,6 +919,7 @@ syncLocalTasks(props.list.tasks)
                 :is-syncing-offline-tasks="isSyncingOfflineTasks"
                 :sync-error="syncError"
                 @submit="createTask"
+                @attachments-change="updateComposerAttachments"
                 @close="closeTaskComposer"
             />
 
@@ -976,7 +1006,13 @@ syncLocalTasks(props.list.tasks)
                             :is-editing="editingTaskId === task.id"
                             :editing-title="editingTitle"
                             :is-menu-open="openedTaskMenuId === task.id"
+                            :editing-note="editingNote"
+                            :editing-attachments="editingAttachments"
+                            :editing-new-attachments="editingNewAttachments"
                             @update:editing-title="editingTitle = $event"
+                            @update:editing-note="editingNote = $event"
+                            @update:editing-attachments="editingAttachments = $event"
+                            @update:editing-new-attachments="editingNewAttachments = $event"
                             @toggle="handleTaskTitleClick"
                             @edit="startEditTask"
                             @save-edit="saveEditTask"
@@ -997,13 +1033,19 @@ syncLocalTasks(props.list.tasks)
                 :show="showDoneTasks"
                 :editing-task-id="editingTaskId"
                 :editing-title="editingTitle"
+                :editing-note="editingNote"
                 :opened-task-menu-id="openedTaskMenuId"
+                :editing-attachments="editingAttachments"
+                :editing-new-attachments="editingNewAttachments"
                 :can-clear-done="isOnline && doneTasks.length > 0"
                 :is-clearing-done="isClearingDoneTasks"
                 @toggle-show="showDoneTasks = !showDoneTasks"
                 @show-more="showMoreDoneTasks"
                 @update:editing-title="editingTitle = $event"
+                @update:editing-note="editingNote = $event"
                 @toggle-task="handleTaskTitleClick"
+                @update:editing-attachments="editingAttachments = $event"
+                @update:editing-new-attachments="editingNewAttachments = $event"
                 @edit="startEditTask"
                 @save-edit="saveEditTask"
                 @cancel-edit="cancelEditTask"

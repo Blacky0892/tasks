@@ -14,6 +14,7 @@ class Task extends Model
         'family_list_id',
         'title',
         'note',
+        'attachments',
         'sort_order',
         'is_done',
         'created_by',
@@ -23,6 +24,7 @@ class Task extends Model
 
     protected $casts = [
         'is_done' => 'boolean',
+        'attachments' => 'array',
         'completed_at' => 'datetime',
     ];
 

@@ -7,6 +7,11 @@ const model = defineModel({
     default: '',
 })
 
+const noteModel = defineModel('note', {
+    type: String,
+    default: '',
+})
+
 // Описывает состояние формы создания задачи:
 // видимость, отправку, ошибки и состояние локальной offline-очереди.
 defineProps({
@@ -37,9 +42,10 @@ defineProps({
 })
 
 // Объявляет события отправки формы и закрытия композера.
-defineEmits(['submit', 'close'])
+defineEmits(['submit', 'close', 'attachments-change'])
 
 const textarea = ref(null)
+const detailsOpen = ref(false)
 
 function focusTextarea() {
     nextTick(() => {
@@ -62,6 +68,10 @@ watch(
 defineExpose({
     focus: focusTextarea,
 })
+
+function toggleDetails() {
+    detailsOpen.value = !detailsOpen.value
+}
 </script>
 
 <template>
@@ -100,6 +110,15 @@ defineExpose({
 
                 <button
                     type="button"
+                    class="home-soft-button rounded-full px-3 py-1.5 text-xs font-bold"
+                    :aria-expanded="detailsOpen"
+                    @click="toggleDetails"
+                >
+                    {{ detailsOpen ? 'Скрыть' : 'Подробнее' }}
+                </button>
+
+                <button
+                    type="button"
                     class="home-menu-button flex h-9 w-9 items-center justify-center rounded-full text-xl"
                     aria-label="Закрыть поле добавления"
                     @click="$emit('close')"
@@ -132,6 +151,44 @@ defineExpose({
                     </span>
                 </button>
             </div>
+
+            <Transition
+                enter-active-class="transition duration-150 ease-out"
+                enter-from-class="-translate-y-1 opacity-0"
+                enter-to-class="translate-y-0 opacity-100"
+                leave-active-class="transition duration-100 ease-in"
+                leave-from-class="translate-y-0 opacity-100"
+                leave-to-class="-translate-y-1 opacity-0"
+            >
+                <div
+                    v-if="detailsOpen"
+                    class="px-1 pt-2"
+                >
+                    <label class="home-muted mb-1 block px-2 text-xs font-bold uppercase tracking-wide" for="task-note">
+                        Заметка
+                    </label>
+
+                    <textarea
+                        id="task-note"
+                        v-model="noteModel"
+                        class="home-input min-h-[96px] w-full resize-none rounded-[1.5rem] border-transparent px-4 py-3 text-sm leading-relaxed"
+                        placeholder="Ссылки, контекст или уточнения…"
+                        rows="3"
+                    />
+
+                    <label class="home-muted mt-3 block px-2 text-xs font-bold uppercase tracking-wide" for="task-attachments">
+                        Файлы и изображения
+                    </label>
+
+                    <input
+                        id="task-attachments"
+                        class="home-input mt-1 w-full rounded-[1.2rem] px-3 py-2 text-sm"
+                        type="file"
+                        multiple
+                        @change="$emit('attachments-change', [...$event.target.files])"
+                    />
+                </div>
+            </Transition>
 
             <div
                 v-if="error"
